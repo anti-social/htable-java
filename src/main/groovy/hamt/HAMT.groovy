@@ -29,6 +29,7 @@ class HAMT {
     private int bitmaskSize
     private int shift
     private int valueSize
+    def levelDataFactory
 
     static private int VERSION = 0
     static private int[] BITMASK_SIZES = [0, 1, -1, 2, -1, -1, -1, 3] as int[]
@@ -40,6 +41,7 @@ class HAMT {
         assert valueSize == 1 || valueSize == 2 || valueSize == 4 || valueSize == 8
         this.bitmaskSize = bitmaskSize
         this.shift = BITMASK_SIZES[bitmaskSize - 1] + 3
+        this.levelDataFactory = new LevelDataFactory2()
         this.valueSize = valueSize
     }
 
@@ -66,10 +68,32 @@ class HAMT {
     }
 
     def dump(map) {
-        def buffer = ByteBuffer.allocate(2)
-        def levels = getLevels(map)
-        def header = getHeader(levels, 1)
+        int levels = getLevels(map)
+        short header = getHeader(levels, 1)
+        def rootLevel = this.levelDataFactory.create()
+        def values = []
+        for (e in map) {
+            int k = e.key >>> ((levels - 1) * this.shift)
+            rootLevel.bitmask = rootLevel.bitmask | (1 << k)
+            values.add(e.value)
+        }
+        def buffer = ByteBuffer.allocate(2 + 2 + values.size() * this.valueSize)
         buffer.putShort(header)
+        buffer.putShort(rootLevel.bitmask)
+        for (v in values) {
+            buffer.putInt(v)
+        }
         return buffer.array()
+    }
+
+    class LevelData2 {
+        public short bitmask
+        
+    }
+
+    class LevelDataFactory2 {
+        def create() {
+            return new LevelData2()
+        }
     }
 }
