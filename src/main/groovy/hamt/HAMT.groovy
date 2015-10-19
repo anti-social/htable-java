@@ -71,24 +71,35 @@ class HAMT {
         int levels = getLevels(map)
         short header = getHeader(levels, 1)
         def rootLevel = this.levelDataFactory.create()
-        def values = []
         for (e in map) {
             int k = e.key >>> ((levels - 1) * this.shift)
-            rootLevel.bitmask = rootLevel.bitmask | (1 << k)
-            values.add(e.value)
+            rootLevel.add(k, e.value)
         }
-        def buffer = ByteBuffer.allocate(2 + 2 + values.size() * this.valueSize)
+        def buffer = ByteBuffer.allocate(2 + 2 + rootLevel.values.size() * this.valueSize)
         buffer.putShort(header)
-        buffer.putShort(rootLevel.bitmask)
-        for (v in values) {
-            buffer.putInt(v)
-        }
+        rootLevel.dump(buffer)
         return buffer.array()
     }
 
     class LevelData2 {
         public short bitmask
+        public def values = []
+
+        def setBit(n) {
+            this.bitmask |= 1 << n
+        }
+
+        def add(k, v) {
+            setBit(k)
+            this.values.add(v)
+        }
         
+        def dump(buffer) {
+            buffer.putShort(this.bitmask)
+            for (v in values) {
+                buffer.putInt(v)
+            }
+        }
     }
 
     class LevelDataFactory2 {
