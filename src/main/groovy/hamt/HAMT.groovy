@@ -28,6 +28,7 @@ import java.nio.ByteOrder
 class HAMT {
     private int bitmaskSize
     private int shift
+    private int shift_mask
     private int valueSize
     def levelDataFactory
 
@@ -35,13 +36,14 @@ class HAMT {
     static private int[] BITMASK_SIZES = [0, 1, -1, 2, -1, -1, -1, 3] as int[]
     static private int[] POINTER_SIZES = [0, 1, 2] as int[]
     static private int[] VALUE_SIZES = [0, 1, -1, 2, -1, -1, -1, 3] as int[]
+    static private def SHIFT_MASKS = [3: 0b0000_0111, 4: 0b0000_1111, 5: 0b0001_1111, 6: 0b0011_1111]
 
     public HAMT(bitmaskSize, valueSize) {
         assert bitmaskSize == 1 || bitmaskSize == 2 || bitmaskSize == 4 || bitmaskSize == 8
         assert valueSize == 1 || valueSize == 2 || valueSize == 4 || valueSize == 8
         this.bitmaskSize = bitmaskSize
         this.shift = BITMASK_SIZES[bitmaskSize - 1] + 3
-        this.levelDataFactory = new LevelDataFactory2()
+        this.shift_mask = SHIFT_MASKS[this.shift]
         this.valueSize = valueSize
     }
 
@@ -54,6 +56,27 @@ class HAMT {
             key = key >>> this.shift
         }
         return levels
+    }
+
+    def getPtrSize(layers) {
+        int ptrSize
+        for (ps in (0..3)) {
+            ptrSize = ps + 1
+            def maxSize = 1 << (8 * ptrSize)
+            def size = 0
+            for (l in layers) {
+                size += l.size(ptrSize, this.valueSize)
+                if (size > maxSize) {
+                    break
+                }
+            }
+            if (size > maxSize) {
+                continue
+            } else {
+                break
+            }
+        }
+        return ptrSize
     }
 
     def getHeader(levels, ptrSize) {
@@ -69,42 +92,91 @@ class HAMT {
 
     def dump(map) {
         int levels = getLevels(map)
-        short header = getHeader(levels, 1)
-        def rootLevel = this.levelDataFactory.create()
+        def layers = [new LevelData2()]
+        def layersMap = [:]
         for (e in map) {
-            int k = e.key >>> ((levels - 1) * this.shift)
-            rootLevel.add(k, e.value)
+            layersMap[e.key] = layers[0]
         }
-        def buffer = ByteBuffer.allocate(2 + 2 + rootLevel.values.size() * this.valueSize)
+        for (int l = levels; l > 0; l--) {
+            def prevSubLayer
+            for (e in map) {
+                int k = e.key >>> ((l - 1) * this.shift) & this.shift_mask
+                def layer = layersMap[e.key]
+                if (l == 1) {
+                    layer.addValue(e.value)
+                } else {
+                    def subLayer = layer.newLayer(k)
+                    if (!subLayer.is(prevSubLayer)) {
+                        layers.add(subLayer)
+                    }
+                    prevSubLayer = subLayer
+                    layersMap[e.key] = subLayer
+                }
+                layer.setBit(k)
+            }
+        }
+        def ptrSize = getPtrSize(layers)
+
+        def bufferSize = 2
+        for (layer in layers) {
+            def layerSize = layer.size(ptrSize, valueSize)
+            layer.setOffset(bufferSize - 2)
+            bufferSize += layerSize
+        }
+        def buffer = ByteBuffer.allocate(bufferSize)
+        // buffer.order(ByteOrder.LITTLE_ENDIAN)
+        short header = getHeader(levels, ptrSize)
         buffer.putShort(header)
-        rootLevel.dump(buffer)
+        for (layer in layers) {
+            layer.dump(buffer)
+        }
         return buffer.array()
     }
 
     class LevelData2 {
         public short bitmask
+        public int offset
+        public def layers = []
         public def values = []
 
         def setBit(n) {
             this.bitmask |= 1 << n
         }
 
-        def add(k, v) {
-            setBit(k)
+        def newLayer(n) {
+            if ((this.bitmask & (1 << n)) != 0) {
+                return this.layers.last()
+            }
+            else {
+                def l = new LevelData2()
+                this.layers.add(l)
+                return l
+            }
+        }
+
+        def addValue(v) {
             this.values.add(v)
+        }
+
+        def setOffset(o) {
+            this.offset = o
+        }
+
+        def size(ptrSize, valueSize) {
+            return 2 + layers.size() * ptrSize + values.size() * valueSize
         }
         
         def dump(buffer) {
             buffer.putShort(this.bitmask)
-            for (v in values) {
-                buffer.putInt(v)
+            if (!layers.isEmpty()) {
+                for (l in layers) {
+                    buffer.put((byte)(l.offset))
+                }
+            } else {
+                for (v in values) {
+                    buffer.putInt(v)
+                }
             }
-        }
-    }
-
-    class LevelDataFactory2 {
-        def create() {
-            return new LevelData2()
         }
     }
 }
