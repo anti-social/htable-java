@@ -23,7 +23,7 @@ import java.nio.ByteOrder
  *
  *  Data:
  *
- *  [<Bitmask><LevelData>]
+ *  [<Bitmask><LayerData>]
  */
 class HAMT {
     private int bitmaskSize
@@ -86,17 +86,17 @@ class HAMT {
     def getHeader(int levels, int ptrSize) {
         assert 1 <= ptrSize && ptrSize <= 4
         short header = 0
-        header |= (VERSION << VERSION_OFFSET)
-        header |= (levels << LEVELS_OFFSET)
-        header |= (BITMASK_SIZES[this.bitmaskSize - 1] << BITMASK_OFFSET)
-        header |= ((ptrSize - 1) << PTR_SIZE_OFFSET)
-        header |= (VALUE_SIZES[this.valueSize - 1] << VALUE_SIZE_OFFSET)
+        header |= VERSION << VERSION_OFFSET
+        header |= levels << LEVELS_OFFSET
+        header |= BITMASK_SIZES[this.bitmaskSize - 1] << BITMASK_OFFSET
+        header |= (ptrSize - 1) << PTR_SIZE_OFFSET
+        header |= VALUE_SIZES[this.valueSize - 1] << VALUE_SIZE_OFFSET
         return header
     }
 
     def dump(map) {
         int levels = getLevels(map)
-        def layers = [new LayerData()]
+        def layers = [new LayerData(this.bitmaskSize)]
         def layersMap = [:]
         for (e in map) {
             layersMap[e.key] = layers[0]
@@ -138,21 +138,29 @@ class HAMT {
     }
 
     class LayerData {
-        public short bitmask
+        public byte[] bitmask
         public int offset
         public def layers = []
         public def values = []
 
-        def setBit(n) {
-            this.bitmask |= 1 << n
+        LayerData(int bitmaskSize) {
+            this.bitmask = new byte[bitmaskSize]
+        }
+        
+        def setBit(k) {
+            int n = k >> 3
+            int b = k & 0b0000_0111
+            this.bitmask[n] |= 1 << b
         }
 
-        def newLayer(n) {
-            if ((this.bitmask & (1 << n)) != 0) {
+        def newLayer(k) {
+            int n = k >> 3
+            int b = k & 0b0000_0111
+            if ((this.bitmask[n] & (1 << b)) != 0) {
                 return this.layers.last()
             }
             else {
-                def l = new LayerData()
+                def l = new LayerData(this.bitmask.length)
                 this.layers.add(l)
                 return l
             }
@@ -167,18 +175,18 @@ class HAMT {
         }
 
         def size(ptrSize, valueSize) {
-            return 2 + layers.size() * ptrSize + values.size() * valueSize
+            return bitmask.length + layers.size() * ptrSize + values.size() * valueSize
         }
         
         def dump(buffer) {
-            buffer.putShort(this.bitmask)
+            buffer.put(this.bitmask)
             if (!layers.isEmpty()) {
                 for (l in layers) {
                     buffer.put((byte)(l.offset))
                 }
             } else {
                 for (v in values) {
-                    buffer.putInt(v)
+                    buffer.put(v)
                 }
             }
         }
