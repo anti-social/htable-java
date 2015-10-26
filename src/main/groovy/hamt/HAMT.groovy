@@ -30,9 +30,13 @@ class HAMT {
     private int shift
     private int shift_mask
     private int valueSize
-    def levelDataFactory
 
     static private int VERSION = 0
+    static private int VERSION_OFFSET = 0
+    static private int LEVELS_OFFSET = 4
+    static private int BITMASK_OFFSET = 9
+    static private int PTR_SIZE_OFFSET = 11
+    static private int VALUE_SIZE_OFFSET = 13
     static private int[] BITMASK_SIZES = [0, 1, -1, 2, -1, -1, -1, 3] as int[]
     static private int[] POINTER_SIZES = [0, 1, 2] as int[]
     static private int[] VALUE_SIZES = [0, 1, -1, 2, -1, -1, -1, 3] as int[]
@@ -79,20 +83,20 @@ class HAMT {
         return ptrSize
     }
 
-    def getHeader(levels, ptrSize) {
+    def getHeader(int levels, int ptrSize) {
         assert 1 <= ptrSize && ptrSize <= 4
         short header = 0
-        header = header | VERSION
-        header = header | (levels << 4)
-        header = header | (BITMASK_SIZES[this.bitmaskSize - 1] << 9)
-        header = header | ((ptrSize - 1) << 11)
-        header = header | (VALUE_SIZES[this.valueSize - 1] << 13)
+        header |= (VERSION << VERSION_OFFSET)
+        header |= (levels << LEVELS_OFFSET)
+        header |= (BITMASK_SIZES[this.bitmaskSize - 1] << BITMASK_OFFSET)
+        header |= ((ptrSize - 1) << PTR_SIZE_OFFSET)
+        header |= (VALUE_SIZES[this.valueSize - 1] << VALUE_SIZE_OFFSET)
         return header
     }
 
     def dump(map) {
         int levels = getLevels(map)
-        def layers = [new LevelData2()]
+        def layers = [new LayerData()]
         def layersMap = [:]
         for (e in map) {
             layersMap[e.key] = layers[0]
@@ -133,7 +137,7 @@ class HAMT {
         return buffer.array()
     }
 
-    class LevelData2 {
+    class LayerData {
         public short bitmask
         public int offset
         public def layers = []
@@ -148,7 +152,7 @@ class HAMT {
                 return this.layers.last()
             }
             else {
-                def l = new LevelData2()
+                def l = new LayerData()
                 this.layers.add(l)
                 return l
             }
