@@ -268,4 +268,28 @@ class HAMTSpec extends Specification {
             0b0000_0001, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 3
         ]
     }
+
+    def "test HAMT.Reader.get"() {
+        setup:
+        def hamtWriter = new HAMT(2, 4)
+
+        when:
+        def reader = new HAMT.Reader(hamtWriter.dump(map))
+        then:
+        for (k in 0..100) {
+            if (map.containsKey(k)) {
+                assert reader.exists(k) == true
+            } else {
+                assert reader.exists(k) == false
+            }
+        }
+
+        where:
+        map | _
+        [
+            (0): [0, 0, 0, 3] as byte[],
+            (13): [0, 0, 0, 1] as byte[],
+            (31): [0, 0, 0, 2] as byte[]
+        ] | _
+    }
 }
