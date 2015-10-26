@@ -5,6 +5,8 @@ import java.nio.ByteOrder
 
 
 /**
+ *  Hash array mapped trie implementation in Java
+ *
  *  <Header><Data>
  *
  *  Header:
