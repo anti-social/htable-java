@@ -1,9 +1,34 @@
 package hamt
 
+import java.nio.ByteBuffer
 import spock.lang.Specification
 
 
 class HAMTSpec extends Specification {
+    void checkGet(reader, map, range, defaultValue) {
+        for (k in range) {
+            if (map.containsKey(k)) {
+                assert reader.get(k, defaultValue) == map[k]
+            } else {
+                assert reader.get(k, defaultValue) == defaultValue
+            }
+        }
+    }
+
+    void checkExists(reader, map, range) {
+        for (k in range) {
+            if (map.containsKey(k)) {
+                assert reader.exists(k) == true
+            } else {
+                assert reader.exists(k) == false
+            }
+        }
+    }
+
+    byte[] byteArrayFromInt(i) {
+        return ByteBuffer.allocate(4).putInt(i).array()
+    }
+
     def "test new HAMT(1, 4).getLevels"() {
         given:
         def hamtWriter = new HAMT(1, 4)
@@ -276,13 +301,7 @@ class HAMTSpec extends Specification {
         when:
         def reader = new HAMT.Reader(hamtWriter.dump(map))
         then:
-        for (k in 0..100) {
-            if (map.containsKey(k)) {
-                assert reader.exists(k) == true
-            } else {
-                assert reader.exists(k) == false
-            }
-        }
+        checkExists(reader, map, 0..100)
 
         where:
         map | _
@@ -293,20 +312,33 @@ class HAMTSpec extends Specification {
         ] | _
     }
 
-    def "test new HAMT.Reader().get"() {
+    def "test new HAMT.Reader().get [bitmaskSize: 1, valueSize: 1]"() {
         given:
-        def hamtWriter = new HAMT(2, 4)
+        def hamtWriter = new HAMT(1, 1)
 
         when:
         def reader = new HAMT.Reader(hamtWriter.dump(map))
         then:
-        for (k in 0..100) {
-            if (map.containsKey(k)) {
-                assert reader.get(k, defaultValue) == map[k]
-            } else {
-                assert reader.get(k, defaultValue) == defaultValue
-            }
-        }
+        checkGet(reader, map, 0..100, defaultValue)
+
+        where:
+        map | defaultValue
+        [
+            (0): [1] as byte[],
+            (13): [2] as byte[],
+            (31): [3] as byte[]
+        ] |
+        [0xff] as byte[]
+    }
+
+    def "test new HAMT.Reader().get [bitmaskSize: 1, valueSize: 4]"() {
+        given:
+        def hamtWriter = new HAMT(1, 4)
+
+        when:
+        def reader = new HAMT.Reader(hamtWriter.dump(map))
+        then:
+        checkGet(reader, map, 0..100, defaultValue)
 
         where:
         map | defaultValue
@@ -316,5 +348,42 @@ class HAMTSpec extends Specification {
             (31): [0, 0, 0, 2] as byte[]
         ] |
         [0xff, 0xff, 0xff, 0xff] as byte[]
+    }
+
+    def "test new HAMT.Reader().get [bitmaskSize: 2, valueSize: 4]"() {
+        given:
+        def hamtWriter = new HAMT(2, 4)
+
+        when:
+        def reader = new HAMT.Reader(hamtWriter.dump(map))
+        then:
+        checkGet(reader, map, 0..100, defaultValue)
+
+        where:
+        map | defaultValue
+        [
+            (0): [0, 0, 0, 3] as byte[],
+            (13): [0, 0, 0, 1] as byte[],
+            (31): [0, 0, 0, 2] as byte[]
+        ] |
+        [0xff, 0xff, 0xff, 0xff] as byte[]
+    }
+
+    def "test new HAMT.Reader().get [bitmaskSize: 2, valueSize: 4] with different ptrSize"() {
+        given:
+        def hamtWriter = new HAMT(2, 4)
+
+        when:
+        def map = keyRange.step(keyStep).collectEntries {
+            [(it): byteArrayFromInt(it * 2)]
+        }
+        def reader = new HAMT.Reader(hamtWriter.dump(map))
+        then:
+        checkGet(reader, map, keyRange, defaultValue)
+
+        where:
+        keyRange | keyStep | defaultValue
+        0..1000 | 3 | [0xff, 0xff, 0xff, 0xff] as byte[]
+        0..100000 | 7 | [0xff, 0xff, 0xff, 0xff] as byte[]
     }
 }

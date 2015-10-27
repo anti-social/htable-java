@@ -15,7 +15,7 @@ import java.nio.ByteOrder
  *     |  |  |   |     |
  *     |  |  |   |     Version
  *     |  |  |   |
- *     |  |  |   Number of levels (n+1)
+ *     |  |  |   Number of levels (n)
  *     |  |  |
  *     |  |  Bitmask size in bytes (2^n)
  *     |  |
@@ -134,7 +134,7 @@ class HAMT {
         short header = getHeader(numLevels, ptrSize)
         buffer.putShort(header)
         for (layer in layers) {
-            layer.dump(buffer)
+            layer.dump(buffer, ptrSize)
         }
         return buffer.array()
     }
@@ -149,13 +149,13 @@ class HAMT {
             this.bitmask = new byte[bitmaskSize]
         }
         
-        def setBit(k) {
+        def setBit(int k) {
             int n = k >>> 3
             int b = k & 0b0000_0111
             this.bitmask[n] |= 1 << b
         }
 
-        def newLayer(k) {
+        def newLayer(int k) {
             int n = k >>> 3
             int b = k & 0b0000_0111
             if ((this.bitmask[n] & (1 << b)) != 0) {
@@ -176,15 +176,15 @@ class HAMT {
             this.offset = o
         }
 
-        def size(ptrSize, valueSize) {
+        def size(int ptrSize, int valueSize) {
             return bitmask.length + layers.size() * ptrSize + values.size() * valueSize
         }
         
-        def dump(buffer) {
+        def dump(ByteBuffer buffer, int ptrSize) {
             buffer.put(this.bitmask)
             if (!layers.isEmpty()) {
                 for (l in layers) {
-                    buffer.put((byte)(l.offset))
+                    buffer.put(Utils.ptrToByteArrayBE(l.offset, ptrSize))
                 }
             } else {
                 for (v in values) {
@@ -226,9 +226,9 @@ class HAMT {
         public Reader(byte[] data) {
             buffer = ByteBuffer.wrap(data)
             short header = buffer.getShort()
-            this.numLevels = (header >>> NUM_LEVELS_OFFSET) & LEVELS_MASK
+            this.numLevels = ((header >>> NUM_LEVELS_OFFSET) & LEVELS_MASK)
             this.bitmaskSize = 1 << ((header >>> BITMASK_SIZE_OFFSET) & BITMASK_SIZE_MASK)
-            this.ptrSize = (header >>> PTR_SIZE_OFFSET) & PTR_SIZE_MASK
+            this.ptrSize = ((header >>> PTR_SIZE_OFFSET) & PTR_SIZE_MASK) + 1
             this.valueSize = 1 << ((header >>> VALUE_SIZE_OFFSET) & VALUE_SIZE_MASK)
             this.buffer = buffer.slice()
         }
@@ -259,9 +259,11 @@ class HAMT {
                     byte bitmaskByte = bitmask[bitmaskIx]
                     ptrOffset += BIT_COUNTS[bitmaskByte]
                 }
-                this.buffer.position(layerOffset + bitmask.length + ptrOffset)
                 if (level != 0) {
-                    layerOffset = this.buffer.get()
+                    this.buffer.position(layerOffset + bitmask.length + ptrOffset * ptrSize)
+                    byte[] nextLayoutOffsetBuffer = new byte[ptrSize]
+                    this.buffer.get(nextLayoutOffsetBuffer)
+                    layerOffset = Utils.byteArrayToPtrBE(nextLayoutOffsetBuffer)
                 }
             }
             return layerOffset + bitmask.length + ptrOffset * valueSize
@@ -281,6 +283,25 @@ class HAMT {
                 return value
             }
             return defaultValue
+        }
+    }
+
+    static class Utils {
+        static byte[] ptrToByteArrayBE(int ptr, int ptrSize) {
+            byte[] res = new byte[ptrSize]
+            for (i in 0..<ptrSize) {
+                res[ptrSize - i - 1] = (ptr >>> (i * 8)) & 0xff
+            }
+            return res
+        }
+
+        static int byteArrayToPtrBE(byte[] array) {
+            int ptrSize = array.length
+            int ptr = (array[0] & 0xff) << ((ptrSize - 1) * 8)
+            for (i in 0..<ptrSize) {
+                ptr |= (array[i] & 0xff) << ((ptrSize - 1 - i) * 8)
+            }
+            return ptr
         }
     }
 }
