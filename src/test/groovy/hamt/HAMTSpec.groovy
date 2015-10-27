@@ -5,7 +5,7 @@ import spock.lang.Specification
 
 class HAMTSpec extends Specification {
     def "test new HAMT(1, 4).getLevels"() {
-        setup:
+        given:
         def hamtWriter = new HAMT(1, 4)
 
         expect:
@@ -39,7 +39,7 @@ class HAMTSpec extends Specification {
     }
 
     def "test new HAMT(2, 4).getLevels"() {
-        setup:
+        given:
         def hamtWriter = new HAMT(2, 4)
 
         expect:
@@ -66,7 +66,7 @@ class HAMTSpec extends Specification {
     }
 
     def "test new HAMT(4, 4).getLevels"() {
-        setup:
+        given:
         def hamtWriter = new HAMT(4, 4)
 
         expect:
@@ -92,7 +92,7 @@ class HAMTSpec extends Specification {
     }
 
     def "test new HAMT(8, 4).getLevels"() {
-        setup:
+        given:
         def hamtWriter = new HAMT(8, 4)
 
         expect:
@@ -116,26 +116,26 @@ class HAMTSpec extends Specification {
     }
 
     def "test new HAMT(2, 4).getHeader"() {
-        setup:
+        given:
         def hamtWriter = new HAMT(2, 4)
 
         expect:
         Integer.toBinaryString((int)hamtWriter.getHeader(levels, ptrSize)) == Integer.toBinaryString(header)
 
         where:
-        levels | ptrSize | header
-        1 | 1 | 0b010_00_01_00001_0000
-        1 | 2 | 0b010_01_01_00001_0000
-        1 | 3 | 0b010_10_01_00001_0000
-        1 | 4 | 0b010_11_01_00001_0000
-        2 | 1 | 0b010_00_01_00010_0000
-        3 | 1 | 0b010_00_01_00011_0000
-        4 | 1 | 0b010_00_01_00100_0000
-        31 | 1 | 0b010_00_01_11111_0000
+        levels | ptrSize || header
+        1  | 1 || 0b010_00_01_00001_0000
+        1  | 2 || 0b010_01_01_00001_0000
+        1  | 3 || 0b010_10_01_00001_0000
+        1  | 4 || 0b010_11_01_00001_0000
+        2  | 1 || 0b010_00_01_00010_0000
+        3  | 1 || 0b010_00_01_00011_0000
+        4  | 1 || 0b010_00_01_00100_0000
+        31 | 1 || 0b010_00_01_11111_0000
     }
 
     def "test new HAMT(1, 1).dump"() {
-        setup:
+        given:
         def hamtWriter = new HAMT(1, 1)
 
         expect:
@@ -151,7 +151,7 @@ class HAMTSpec extends Specification {
     }
 
     def "test new HAMT(1, 4).dump"() {
-        setup:
+        given:
         def hamtWriter = new HAMT(1, 4)
 
         expect:
@@ -197,7 +197,7 @@ class HAMTSpec extends Specification {
     }
 
     def "test new HAMT(2, 4).dump"() {
-        setup:
+        given:
         def hamtWriter = new HAMT(2, 4)
 
         expect:
@@ -226,7 +226,7 @@ class HAMTSpec extends Specification {
     }
 
     def "test new HAMT(4, 1).dump"() {
-        setup:
+        given:
         def hamtWriter = new HAMT(4, 1)
 
         expect:
@@ -248,7 +248,7 @@ class HAMTSpec extends Specification {
     }
 
     def "test new HAMT(8, 1).dump"() {
-        setup:
+        given:
         def hamtWriter = new HAMT(8, 1)
 
         expect:
@@ -269,8 +269,8 @@ class HAMTSpec extends Specification {
         ]
     }
 
-    def "test HAMT.Reader.get"() {
-        setup:
+    def "test new HAMT.Reader().exists"() {
+        given:
         def hamtWriter = new HAMT(2, 4)
 
         when:
@@ -291,5 +291,30 @@ class HAMTSpec extends Specification {
             (13): [0, 0, 0, 1] as byte[],
             (31): [0, 0, 0, 2] as byte[]
         ] | _
+    }
+
+    def "test new HAMT.Reader().get"() {
+        given:
+        def hamtWriter = new HAMT(2, 4)
+
+        when:
+        def reader = new HAMT.Reader(hamtWriter.dump(map))
+        then:
+        for (k in 0..100) {
+            if (map.containsKey(k)) {
+                assert reader.get(k, defaultValue) == map[k]
+            } else {
+                assert reader.get(k, defaultValue) == defaultValue
+            }
+        }
+
+        where:
+        map | defaultValue
+        [
+            (0): [0, 0, 0, 3] as byte[],
+            (13): [0, 0, 0, 1] as byte[],
+            (31): [0, 0, 0, 2] as byte[]
+        ] |
+        [0xff, 0xff, 0xff, 0xff] as byte[]
     }
 }

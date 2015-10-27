@@ -195,22 +195,26 @@ class HAMT {
     }
 
     static class Reader {
+        private final int numLevels;
+        private final int bitmaskSize;
+        private final int ptrSize;
+        private final int valueSize;
         private final ByteBuffer buffer
-        private final short header
 
         private static int LEVELS_MASK = 0b0001_1111
         private static int BITMASK_SIZE_MASK = 0b0000_0011
         private static int PTR_SIZE_MASK = 0b0000_0011
+        private static int VALUE_SIZE_MASK = 0b0000_0011
 
         private static byte[] BIT_COUNT_MASKS = [
+            0b0000_0000,
             0b0000_0001,
             0b0000_0011,
             0b0000_0111,
             0b0000_1111,
             0b0001_1111,
             0b0011_1111,
-            0b0111_1111,
-            0b1111_1111
+            0b0111_1111
         ]
         private static byte[] BIT_COUNTS = new byte[256]
         static {
@@ -220,64 +224,63 @@ class HAMT {
         }
 
         public Reader(byte[] data) {
-            println data
             buffer = ByteBuffer.wrap(data)
-            this.header = buffer.getShort()
+            short header = buffer.getShort()
+            this.numLevels = (header >>> NUM_LEVELS_OFFSET) & LEVELS_MASK
+            this.bitmaskSize = 1 << ((header >>> BITMASK_SIZE_OFFSET) & BITMASK_SIZE_MASK)
+            this.ptrSize = (header >>> PTR_SIZE_OFFSET) & PTR_SIZE_MASK
+            this.valueSize = 1 << ((header >>> VALUE_SIZE_OFFSET) & VALUE_SIZE_MASK)
             this.buffer = buffer.slice()
         }
 
-        def exists(int key) {
+        def getValueOffset(int key) {
             this.buffer.position(0)
-            println this.buffer.getShort()
-            this.buffer.position(0)
-            byte[] a = new byte[2]
-            this.buffer.get(a)
-            println a
-            this.buffer.position(0)
-            int numLevels = (this.header >>> NUM_LEVELS_OFFSET) & LEVELS_MASK
-            int bitmaskSize = ((this.header >>> BITMASK_SIZE_OFFSET) & BITMASK_SIZE_MASK) + 1
-            int shift = BITMASK_SIZES[bitmaskSize - 1] + 3
+            int shift = BITMASK_SIZES[this.bitmaskSize - 1] + 3
             int shift_mask = SHIFT_MASKS[shift]
-            int ptrSize = (this.header >>> PTR_SIZE_OFFSET) & PTR_SIZE_MASK
 
             if (key >>> (numLevels * shift) > 0) {
-                return false
+                return -1
             }
 
             int layerOffset = 0
+            int ptrOffset = 0
             byte[] bitmask = new byte[bitmaskSize]
-            println "key: $key"
             for (int level = numLevels - 1; level >= 0; level--) {
-                println "level: $level"
                 int k = key >>> (level * shift) & shift_mask
-                println "k: $k"
                 int nByte = k >>> 3
                 int nBit = k & 0b0000_0111
-                println "nByte: $nByte"
-                println "nBit: $nBit"
-                println "layerOffset: $layerOffset"
                 this.buffer.position(layerOffset)
                 this.buffer.get(bitmask)
-                println "bitmask: $bitmask"
                 if ((bitmask[nByte] & (1 << nBit)) == 0) {
-                    return false
+                    return -1
                 }
-                println "bitmask[nByte]: ${bitmask[nByte]}"
-                println "BIT_COUNT_MASKS[nBit]: ${BIT_COUNT_MASKS[nBit]}"
-                int ptrOffset = BIT_COUNTS[bitmask[nByte] & BIT_COUNT_MASKS[nBit]] - 1
-                println "ptrOffset: $ptrOffset"
+                ptrOffset = BIT_COUNTS[bitmask[nByte] & BIT_COUNT_MASKS[nBit]]
                 for (int bitmaskIx = nByte - 1; bitmaskIx >= 0; bitmaskIx--) {
                     byte bitmaskByte = bitmask[bitmaskIx]
-                    println "bitmaskByte: $bitmaskByte"
                     ptrOffset += BIT_COUNTS[bitmaskByte]
                 }
-                println "ptrOffset: $ptrOffset"
                 this.buffer.position(layerOffset + bitmask.length + ptrOffset)
-                layerOffset = this.buffer.get()
-                println "newLayerOffset: $layerOffset"
-                println ""
+                if (level != 0) {
+                    layerOffset = this.buffer.get()
+                }
             }
-            return true
+            return layerOffset + bitmask.length + ptrOffset * valueSize
+        }
+
+        def exists(int key) {
+            int valueOffset = getValueOffset(key)
+            return valueOffset > 0 ? true : false
+        }
+
+        def get(int key, byte[] defaultValue) {
+            int valueOffset = getValueOffset(key)
+            if (valueOffset > 0) {
+                byte[] value = new byte[this.valueSize]
+                this.buffer.position(valueOffset)
+                this.buffer.get(value)
+                return value
+            }
+            return defaultValue
         }
     }
 }
