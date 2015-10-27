@@ -29,9 +29,9 @@ class HAMTSpec extends Specification {
         return ByteBuffer.allocate(4).putInt(i).array()
     }
 
-    def "test new HAMT(1, 4).getLevels"() {
+    def "test new HAMT.Writer(1, 4).getLevels"() {
         given:
-        def hamtWriter = new HAMT(1, 4)
+        def hamtWriter = new HAMT.Writer(1, 4)
 
         expect:
         hamtWriter.getLevels(map) == levels
@@ -63,9 +63,9 @@ class HAMTSpec extends Specification {
         [(1073741824):1] | 11
     }
 
-    def "test new HAMT(2, 4).getLevels"() {
+    def "test new HAMT.Writer(2, 4).getLevels"() {
         given:
-        def hamtWriter = new HAMT(2, 4)
+        def hamtWriter = new HAMT.Writer(2, 4)
 
         expect:
         hamtWriter.getLevels(map) == levels
@@ -90,9 +90,9 @@ class HAMTSpec extends Specification {
         [(268435456):1] | 8
     }
 
-    def "test new HAMT(4, 4).getLevels"() {
+    def "test new HAMT.Writer(4, 4).getLevels"() {
         given:
-        def hamtWriter = new HAMT(4, 4)
+        def hamtWriter = new HAMT.Writer(4, 4)
 
         expect:
         hamtWriter.getLevels(map) == levels
@@ -116,9 +116,9 @@ class HAMTSpec extends Specification {
         [(1073741824):1] | 7
     }
 
-    def "test new HAMT(8, 4).getLevels"() {
+    def "test new HAMT.Writer(8, 4).getLevels"() {
         given:
-        def hamtWriter = new HAMT(8, 4)
+        def hamtWriter = new HAMT.Writer(8, 4)
 
         expect:
         hamtWriter.getLevels(map) == levels
@@ -140,9 +140,9 @@ class HAMTSpec extends Specification {
         [(1073741824):1] | 6
     }
 
-    def "test new HAMT(2, 4).getHeader"() {
+    def "test new HAMT.Writer(2, 4).getHeader"() {
         given:
-        def hamtWriter = new HAMT(2, 4)
+        def hamtWriter = new HAMT.Writer(2, 4)
 
         expect:
         Integer.toBinaryString((int)hamtWriter.getHeader(levels, ptrSize)) == Integer.toBinaryString(header)
@@ -159,9 +159,9 @@ class HAMTSpec extends Specification {
         31 | 1 || 0b010_00_01_11111_0000
     }
 
-    def "test new HAMT(1, 1).dump"() {
+    def "test new HAMT.Writer(1, 1).dump"() {
         given:
-        def hamtWriter = new HAMT(1, 1)
+        def hamtWriter = new HAMT.Writer(1, 1)
 
         expect:
         hamtWriter.dump(map).collect { it & 0xff } == bytes
@@ -175,9 +175,9 @@ class HAMTSpec extends Specification {
         ]
     }
 
-    def "test new HAMT(1, 4).dump"() {
+    def "test new HAMT.Writer(1, 4).dump"() {
         given:
-        def hamtWriter = new HAMT(1, 4)
+        def hamtWriter = new HAMT.Writer(1, 4)
 
         expect:
         hamtWriter.dump(map).collect { it & 0xff } == bytes
@@ -221,9 +221,9 @@ class HAMTSpec extends Specification {
         ]
     }
 
-    def "test new HAMT(2, 4).dump"() {
+    def "test new HAMT.Writer(2, 4).dump"() {
         given:
-        def hamtWriter = new HAMT(2, 4)
+        def hamtWriter = new HAMT.Writer(2, 4)
 
         expect:
         hamtWriter.dump(map).collect { it & 0xff } == bytes
@@ -250,9 +250,9 @@ class HAMTSpec extends Specification {
         ]
     }
 
-    def "test new HAMT(4, 1).dump"() {
+    def "test new HAMT.Writer(4, 1).dump"() {
         given:
-        def hamtWriter = new HAMT(4, 1)
+        def hamtWriter = new HAMT.Writer(4, 1)
 
         expect:
         hamtWriter.dump(map).collect { it & 0xff } == bytes
@@ -272,9 +272,9 @@ class HAMTSpec extends Specification {
         ]
     }
 
-    def "test new HAMT(8, 1).dump"() {
+    def "test new HAMT.Writer(8, 1).dump"() {
         given:
-        def hamtWriter = new HAMT(8, 1)
+        def hamtWriter = new HAMT.Writer(8, 1)
 
         expect:
         hamtWriter.dump(map).collect { it & 0xff } == bytes
@@ -296,7 +296,7 @@ class HAMTSpec extends Specification {
 
     def "test new HAMT.Reader().exists"() {
         given:
-        def hamtWriter = new HAMT(2, 4)
+        def hamtWriter = new HAMT.Writer(2, 4)
 
         when:
         def reader = new HAMT.Reader(hamtWriter.dump(map))
@@ -314,7 +314,7 @@ class HAMTSpec extends Specification {
 
     def "test new HAMT.Reader().get [bitmaskSize: 1, valueSize: 1]"() {
         given:
-        def hamtWriter = new HAMT(1, 1)
+        def hamtWriter = new HAMT.Writer(1, 1)
 
         when:
         def reader = new HAMT.Reader(hamtWriter.dump(map))
@@ -333,7 +333,7 @@ class HAMTSpec extends Specification {
 
     def "test new HAMT.Reader().get [bitmaskSize: 1, valueSize: 4]"() {
         given:
-        def hamtWriter = new HAMT(1, 4)
+        def hamtWriter = new HAMT.Writer(1, 4)
 
         when:
         def reader = new HAMT.Reader(hamtWriter.dump(map))
@@ -352,7 +352,7 @@ class HAMTSpec extends Specification {
 
     def "test new HAMT.Reader().get [bitmaskSize: 2, valueSize: 4]"() {
         given:
-        def hamtWriter = new HAMT(2, 4)
+        def hamtWriter = new HAMT.Writer(2, 4)
 
         when:
         def reader = new HAMT.Reader(hamtWriter.dump(map))
@@ -371,7 +371,7 @@ class HAMTSpec extends Specification {
 
     def "test new HAMT.Reader().get [bitmaskSize: 2, valueSize: 4] with different ptrSize"() {
         given:
-        def hamtWriter = new HAMT(2, 4)
+        def hamtWriter = new HAMT.Writer(2, 4)
 
         when:
         def map = keyRange.step(keyStep).collectEntries {
