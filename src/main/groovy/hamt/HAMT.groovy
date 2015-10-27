@@ -131,7 +131,6 @@ class HAMT {
                 bufferSize += layerSize
             }
             def buffer = ByteBuffer.allocate(bufferSize)
-            println bufferSize
             // buffer.order(ByteOrder.LITTLE_ENDIAN)
             short header = getHeader(numLevels, ptrSize)
             buffer.putShort(header)
