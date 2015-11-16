@@ -38,17 +38,39 @@ class HAMT {
     static private int[] VALUE_SIZES = [0, 1, -1, 2, -1, -1, -1, 3] as int[]
     static private def SHIFT_MASKS = [3: 0b0000_0111, 4: 0b0000_1111, 5: 0b0001_1111, 6: 0b0011_1111]
 
-    static class Writer {
-        private int bitmaskSize
-        private int shift
-        private int shift_mask
-        private int valueSize
+    static enum BitmaskSize {
+        BYTE(1), SHORT(2), INT(4), LONG(8)
 
-        public Writer(bitmaskSize, valueSize) {
-            assert bitmaskSize == 1 || bitmaskSize == 2 || bitmaskSize == 4 || bitmaskSize == 8
-            assert valueSize == 1 || valueSize == 2 || valueSize == 4 || valueSize == 8
+        private final int size
+
+        BitmaskSize(int size) { this.size = size }
+
+        int size() { return this.size }
+    }
+    
+    static enum ValueSize {
+        BYTE(1), SHORT(2), INT(4), LONG(8), VAR(-1)
+
+        private final int size
+
+        ValueSize(int size) { this.size = size }
+
+        int size() { return this.size }
+    }
+    
+    static class Writer {
+        private final int bitmaskSize
+        private final int shift
+        private final int shift_mask
+        private final int valueSize
+
+        public Writer(BitmaskSize bitmaskSize, ValueSize valueSize) {
+            this(bitmaskSize.size(), valueSize.size())
+        }
+
+        private Writer(int bitmaskSize, int valueSize) {
             this.bitmaskSize = bitmaskSize
-            this.shift = BITMASK_SIZES[bitmaskSize - 1] + 3
+            this.shift = BITMASK_SIZES[this.bitmaskSize - 1] + 3
             this.shift_mask = SHIFT_MASKS[this.shift]
             this.valueSize = valueSize
         }
