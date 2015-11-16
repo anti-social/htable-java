@@ -131,9 +131,8 @@ class HAMT {
                 bufferSize += layerSize
             }
             def buffer = ByteBuffer.allocate(bufferSize)
-            // buffer.order(ByteOrder.LITTLE_ENDIAN)
-            short header = getHeader(numLevels, ptrSize)
-            buffer.putShort(header)
+            buffer.order(ByteOrder.LITTLE_ENDIAN)
+            buffer.putShort(getHeader(numLevels, ptrSize))
             for (layer in layers) {
                 layer.dump(buffer, ptrSize)
             }
@@ -185,7 +184,7 @@ class HAMT {
                 buffer.put(this.bitmask)
                 if (!layers.isEmpty()) {
                     for (l in layers) {
-                        buffer.put(Utils.ptrToByteArrayBE(l.offset, ptrSize))
+                        buffer.put(Utils.ptrToByteArrayLE(l.offset, ptrSize))
                     }
                 } else {
                     for (v in values) {
@@ -226,7 +225,7 @@ class HAMT {
         }
 
         public Reader(byte[] data) {
-            buffer = ByteBuffer.wrap(data)
+            buffer = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN)
             short header = buffer.getShort()
             this.numLevels = ((header >>> NUM_LEVELS_OFFSET) & LEVELS_MASK)
             this.bitmaskSize = 1 << ((header >>> BITMASK_SIZE_OFFSET) & BITMASK_SIZE_MASK)
@@ -265,7 +264,7 @@ class HAMT {
                     this.buffer.position(layerOffset + bitmask.length + ptrOffset * ptrSize)
                     byte[] nextLayoutOffsetBuffer = new byte[ptrSize]
                     this.buffer.get(nextLayoutOffsetBuffer)
-                    layerOffset = Utils.byteArrayToPtrBE(nextLayoutOffsetBuffer)
+                    layerOffset = Utils.byteArrayToPtrLE(nextLayoutOffsetBuffer)
                 }
             }
             return layerOffset + bitmask.length + ptrOffset * valueSize
@@ -289,6 +288,23 @@ class HAMT {
     }
 
     static class Utils {
+        static byte[] ptrToByteArrayLE(int ptr, int ptrSize) {
+            byte[] res = new byte[ptrSize]
+            for (i in 0..<ptrSize) {
+                res[i] = (ptr >>> (i * 8)) & 0xff
+            }
+            return res
+        }
+
+        static int byteArrayToPtrLE(byte[] array) {
+            int ptrSize = array.length
+            int ptr = array[0] & 0xff
+            for (i in 0..<ptrSize) {
+                ptr |= (array[i] & 0xff) << (i * 8)
+            }
+            return ptr
+        }
+
         static byte[] ptrToByteArrayBE(int ptr, int ptrSize) {
             byte[] res = new byte[ptrSize]
             for (i in 0..<ptrSize) {
