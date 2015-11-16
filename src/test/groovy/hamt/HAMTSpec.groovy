@@ -26,8 +26,12 @@ class HAMTSpec extends Specification {
         }
     }
 
-    byte[] byteArrayFromInt(i) {
-      return ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(i).array()
+    byte[] intToBytes(int v) {
+        return ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(v).array()
+    }
+
+    byte[] shortToBytes(short v) {
+        return ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN).putShort(v).array()
     }
 
     def "test new HAMT.Writer(1, 4).getLevels"() {
@@ -150,14 +154,14 @@ class HAMTSpec extends Specification {
 
         where:
         levels | ptrSize || header
-        1  | 1 || 0b010_00_01_00001_0000
-        1  | 2 || 0b010_01_01_00001_0000
-        1  | 3 || 0b010_10_01_00001_0000
-        1  | 4 || 0b010_11_01_00001_0000
-        2  | 1 || 0b010_00_01_00010_0000
-        3  | 1 || 0b010_00_01_00011_0000
-        4  | 1 || 0b010_00_01_00100_0000
-        31 | 1 || 0b010_00_01_11111_0000
+        1      | 1       || 0b0000_0_10_00_01_00001
+        1      | 2       || 0b0000_0_10_01_01_00001
+        1      | 3       || 0b0000_0_10_10_01_00001
+        1      | 4       || 0b0000_0_10_11_01_00001
+        2      | 1       || 0b0000_0_10_00_01_00010
+        3      | 1       || 0b0000_0_10_00_01_00011
+        4      | 1       || 0b0000_0_10_00_01_00100
+        31     | 1       || 0b0000_0_10_00_01_11111
     }
 
     def "test new HAMT.Writer(1, 1).dump"() {
@@ -171,7 +175,7 @@ class HAMTSpec extends Specification {
         map | bytes
         // keys: 0b00_000_000
         [(0): [3] as byte[]] | [
-            0b0001_0000, 0b0_00_00_00_0,
+            *shortToBytes((short) 0b0000_0_00_00_00_00001),
             0b0000_0001, 3
         ]
     }
@@ -187,23 +191,23 @@ class HAMTSpec extends Specification {
         map | bytes
         // keys: 0b00_000_000
         [(0): [3, 0, 0, 0] as byte[]] | [
-            0b0001_0000, 0b010_00_00_0,
+            *shortToBytes((short) 0b0000_0_10_00_00_00001),
             0b0000_0001, 3, 0, 0, 0
         ]
         // keys: 0b00_000_111
         [(7): [3, 0, 0, 0] as byte[]] | [
-            0b0001_0000, 0b010_00_00_0,
+            *shortToBytes((short) 0b0000_0_10_00_00_00001),
             0b1000_0000, 3, 0, 0, 0,
         ]
         // keys: 0b00_001_000
         [(8): [3, 0, 0, 0] as byte[]] | [
-            0b0010_0000, 0b010_00_00_0,
+            *shortToBytes((short) 0b0000_0_10_00_00_00010),
             0b0000_0010, 2,
             0b0000_0001, 3, 0, 0, 0,
         ]
         // keys: 0b01_000_000
         [(64): [3, 0, 0, 0] as byte[]] | [
-            0b0011_0000, 0b010_00_00_0,
+            *shortToBytes((short) 0b0000_0_10_00_00_00011),
             0b0000_0010, 2,
             0b0000_0001, 4,
             0b0000_0001, 3, 0, 0, 0,
@@ -212,7 +216,7 @@ class HAMTSpec extends Specification {
         [(0): [1, 0, 0, 0] as byte[],
          (13): [2, 0, 0, 0] as byte[],
          (159): [3, 0, 0, 0] as byte[]] | [
-             0b0011_0000, 0b010_00_00_0,
+             *shortToBytes((short) 0b0000_0_10_00_00_00011),
              0b0000_0101, 3, 6,       // (0, 13), 159
              0b0000_0011, 8, 13,      // 0, 13
              0b0000_1000, 18,         // 159
@@ -232,19 +236,19 @@ class HAMTSpec extends Specification {
         where:
         map | bytes
         [(1): [3, 0, 0, 0] as byte[]] | [
-            0b0001_0000, 0b010_00_01_0,
+            *shortToBytes((short) 0b0000_0_10_00_01_00001),
             0b0000_0010, 0b0000_0000, 3, 0, 0, 0
         ]
         [(0): [3, 0, 0, 0] as byte[],
          (13): [1, 0, 0, 0] as byte[]] | [
-            0b0001_0000, 0b010_00_01_0,
+            *shortToBytes((short) 0b0000_0_10_00_01_00001),
             0b0000_0001, 0b0010_0000, 3, 0, 0, 0, 1, 0, 0, 0
         ]
         // keys: 0b0000_0000, 0b0000_1101, 0b0001_1111
         [(0): [3, 0, 0, 0] as byte[],
          (13): [1, 0, 0, 0] as byte[],
          (31): [2, 0, 0, 0] as byte[]] | [
-            0b0010_0000, 0b010_00_01_0,
+            *shortToBytes((short) 0b0000_0_10_00_01_00010),
             0b0000_0011, 0b0000_0000, 4, 14,
             0b0000_0001, 0b0010_0000, 3, 0, 0, 0, 1, 0, 0, 0,
             0b0000_0000, 0b1000_0000, 2, 0, 0, 0
@@ -262,12 +266,12 @@ class HAMTSpec extends Specification {
         map | bytes
         // keys: 0b000_00000
         [(0): [3] as byte[]] | [
-            0b0001_0000, 0b0_00_00_10_0,
+            *shortToBytes((short) 0b0000_0_00_00_10_00001),
             0b0000_0001, 0b0000_0000, 0b0000_0000, 0b0000_0000, 3
         ]
         // keys: 0b001_00000
         [(32): [3] as byte[]] | [
-            0b0010_0000, 0b0_00_00_10_0,
+            *shortToBytes((short) 0b0000_0_00_00_10_00010),
             0b0000_0010, 0b0000_0000, 0b0000_0000, 0b0000_0000, 5,
             0b0000_0001, 0b0000_0000, 0b0000_0000, 0b0000_0000, 3
         ]
@@ -284,12 +288,12 @@ class HAMTSpec extends Specification {
         map | bytes
         // keys: 0b000_00000
         [(0): [3] as byte[]] | [
-            0b0001_0000, 0b0_00_00_11_0,
+            *shortToBytes((short) 0b0000_0_00_00_11_00001),
             0b0000_0001, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 3
         ]
         // keys: 0b001_00000
         [(64): [3] as byte[]] | [
-            0b0010_0000, 0b0_00_00_11_0,
+            *shortToBytes((short) 0b0000_0_00_00_11_00010),
             0b0000_0010, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 9,
             0b0000_0001, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 3
         ]
@@ -376,7 +380,7 @@ class HAMTSpec extends Specification {
 
         when:
         def map = keyRange.step(keyStep).collectEntries {
-            [(it): byteArrayFromInt(it * 2)]
+            [(it): intToBytes(it * 2)]
         }
         def reader = new HAMT.Reader(hamtWriter.dump(map))
         then:

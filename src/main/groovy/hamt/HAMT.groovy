@@ -11,29 +11,28 @@ import java.nio.ByteOrder
  *
  *  Header:
  *
- *  |b|2b|2b|2b|-5b--|-4b-|
- *     |  |  |   |     |
- *     |  |  |   |     Version
- *     |  |  |   |
- *     |  |  |   Number of levels (n)
+ *  |-4b-|b|2b|2b|2b|-5b--|
+ *     |  |  |  |  |   |
+ *     |  |  |  |  |   Number of levels (n)
+ *     |  |  |  |  |
+ *     |  |  |  |  Bitmask size in bytes (2^n)
+ *     |  |  |  |
+ *     |  |  |  Pointer size in bytes (n+1)
  *     |  |  |
- *     |  |  Bitmask size in bytes (2^n)
- *     |  |
- *     |  Pointer size in bytes (n+1)
+ *     |  |  Value size (2^n)
+ *     |  Variable value size flag (not implemented yet)
  *     |
- *     Value size (2^n)
+ *     Reserved
  *
  *  Data:
  *
  *  [<Bitmask><LayerData>]
  */
 class HAMT {
-    static private int VERSION = 0
-    static private int VERSION_OFFSET = 0
-    static private int NUM_LEVELS_OFFSET = 4
-    static private int BITMASK_SIZE_OFFSET = 9
-    static private int PTR_SIZE_OFFSET = 11
-    static private int VALUE_SIZE_OFFSET = 13
+    static private int NUM_LEVELS_OFFSET = 0
+    static private int BITMASK_SIZE_OFFSET = 5
+    static private int PTR_SIZE_OFFSET = 7
+    static private int VALUE_SIZE_OFFSET = 9
     static private int[] BITMASK_SIZES = [0, 1, -1, 2, -1, -1, -1, 3] as int[]
     static private int[] POINTER_SIZES = [0, 1, 2] as int[]
     static private int[] VALUE_SIZES = [0, 1, -1, 2, -1, -1, -1, 3] as int[]
@@ -89,7 +88,6 @@ class HAMT {
         def getHeader(int numLevels, int ptrSize) {
             assert 1 <= ptrSize && ptrSize <= 4
             short header = 0
-            header |= VERSION << VERSION_OFFSET
             header |= numLevels << NUM_LEVELS_OFFSET
             header |= BITMASK_SIZES[this.bitmaskSize - 1] << BITMASK_SIZE_OFFSET
             header |= (ptrSize - 1) << PTR_SIZE_OFFSET
