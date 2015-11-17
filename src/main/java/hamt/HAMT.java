@@ -35,15 +35,15 @@ import java.util.Set;
  *  [<Bitmask><LayerData>]
  */
 public class HAMT {
-    public static final int NUM_LEVELS_OFFSET = 0;
-    public static final int BITMASK_SIZE_OFFSET = 5;
-    public static final int PTR_SIZE_OFFSET = 8;
-    public static final int VALUE_SIZE_OFFSET = 10;
-    public static final int VARIABLE_VALUE_SIZE_OFFSET = 12;
-    public static final int LEVELS_MASK = 0b0001_1111;
-    public static final int BITMASK_SIZE_MASK = 0b0000_0111;
-    public static final int PTR_SIZE_MASK = 0b0000_0011;
-    public static final int VALUE_SIZE_MASK = 0b0000_0011;
+    private static final int NUM_LEVELS_OFFSET = 0;
+    private static final int BITMASK_SIZE_OFFSET = 5;
+    private static final int PTR_SIZE_OFFSET = 8;
+    private static final int VALUE_SIZE_OFFSET = 10;
+    private static final int VARIABLE_VALUE_SIZE_OFFSET = 12;
+    private static final int LEVELS_MASK = 0b0001_1111;
+    private static final int BITMASK_SIZE_MASK = 0b0000_0111;
+    private static final int PTR_SIZE_MASK = 0b0000_0011;
+    private static final int VALUE_SIZE_MASK = 0b0000_0011;
 
     public static enum BitmaskSize {
         BYTE(1), SHORT(2), INT(4), LONG(8);
