@@ -120,7 +120,7 @@ class HAMT {
 
         int getPtrSize(List<LayerData> layers) {
             int ptrSize
-            for (ps in (0..3)) {
+            for (int ps = 0; ps <= 3; ps++) {
                 ptrSize = ps + 1
                 int maxSize = 1 << (8 * ptrSize)
                 int size = 0
@@ -153,7 +153,7 @@ class HAMT {
             int numLevels = getLevels(map)
             List<LayerData> layers = [new LayerData(this.bitmaskSize.size)]
             Map<Long,LayerData> layersMap = [:]
-            for (e in map) {
+            for (Map.Entry<Long,byte[]> e : map) {
                 layersMap[e.key] = layers[0]
             }
             for (int l = numLevels; l > 0; l--) {
@@ -177,15 +177,15 @@ class HAMT {
             int ptrSize = getPtrSize(layers)
 
             int bufferSize = 2
-            for (layer in layers) {
-                def layerSize = layer.size(ptrSize, valueSize.size)
+            for (LayerData layer : layers) {
+                int layerSize = layer.size(ptrSize, valueSize.size)
                 layer.setOffset(bufferSize - 2)
                 bufferSize += layerSize
             }
             ByteBuffer buffer = ByteBuffer.allocate(bufferSize)
             buffer.order(ByteOrder.LITTLE_ENDIAN)
             buffer.putShort(getHeader(numLevels, ptrSize))
-            for (layer in layers) {
+            for (LayerData layer : layers) {
                 layer.dump(buffer, ptrSize)
             }
             return buffer.array()
@@ -214,7 +214,7 @@ class HAMT {
                     return this.layers.last()
                 }
                 else {
-                    def l = new LayerData(this.bitmask.length)
+                    LayerData l = new LayerData(this.bitmask.length)
                     this.layers.add(l)
                     return l
                 }
@@ -271,7 +271,7 @@ class HAMT {
         ]
         private static byte[] BIT_COUNTS = new byte[256]
         static {
-            for (i in 0..255) {
+            for (int i = 0; i <= 255; i++) {
                 BIT_COUNTS[i] = Integer.bitCount(i) as byte
             }
         }
@@ -343,7 +343,7 @@ class HAMT {
     static class Utils {
         static byte[] ptrToByteArrayLE(int ptr, int ptrSize) {
             byte[] res = new byte[ptrSize]
-            for (i in 0..<ptrSize) {
+            for (int i = 0; i < ptrSize; i++) {
                 res[i] = ((ptr >>> (i * 8)) & 0xff) as byte
             }
             return res
@@ -352,7 +352,7 @@ class HAMT {
         static int byteArrayToPtrLE(byte[] array) {
             int ptrSize = array.length
             int ptr = array[0] & 0xff
-            for (i in 0..<ptrSize) {
+            for (int i = 0; i < ptrSize; i++) {
                 ptr |= (array[i] & 0xff) << (i * 8)
             }
             return ptr
@@ -360,7 +360,7 @@ class HAMT {
 
         static byte[] ptrToByteArrayBE(int ptr, int ptrSize) {
             byte[] res = new byte[ptrSize]
-            for (i in 0..<ptrSize) {
+            for (int i = 0; i < ptrSize; i++) {
                 res[ptrSize - i - 1] = ((ptr >>> (i * 8)) & 0xff) as byte
             }
             return res
@@ -369,7 +369,7 @@ class HAMT {
         static int byteArrayToPtrBE(byte[] array) {
             int ptrSize = array.length
             int ptr = (array[0] & 0xff) << ((ptrSize - 1) * 8)
-            for (i in 0..<ptrSize) {
+            for (int i = 0; i < ptrSize; i++) {
                 ptr |= (array[i] & 0xff) << ((ptrSize - 1 - i) * 8)
             }
             return ptr
