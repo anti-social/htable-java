@@ -9,18 +9,16 @@ import org.junit.Test
 class HAMTBenchmark {
     private HAMT.Reader reader;
 
-    private static final int lookupKey = 268_435_456
+    private static final long lookupKey = 268_435_456L
     private static final byte[] defaultValue = [0xff, 0xff, 0xff, 0xff] as byte[]
     private static final int WARMUP_CYCLES = 100_000
     private static final int CYCLES = 1_000_000
 
     @Before
     void setUp() {
-        def data = [
-            (1): [0, 0, 0, 1] as byte[],
-            (lookupKey): [0, 0, 0, 2] as byte[]
-        ]
-        this.reader = new HAMT.Reader(new HAMT.Writer(2, 4).dump(data))
+        def keys = [1L, lookupKey]
+        def values = [[0, 0, 0, 1] as byte[], [0, 0, 0, 2] as byte[]]
+        this.reader = new HAMT.Reader(new HAMT.Writer(2, 4).dump(keys, values))
     }
 
     @Test
