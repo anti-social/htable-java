@@ -167,7 +167,7 @@ public class HAMT {
         public byte[] dump(Map<Long,byte[]> map) {
             int numLevels = getLevels(map)
             List<LayerData> layers = [new LayerData(this.bitmaskSize.size)]
-            Map<Long,LayerData> layersMap = [:]
+            Map<Long,LayerData> layersMap = new HashMap<>()
             for (Map.Entry<Long,byte[]> e : map) {
                 layersMap[e.key] = layers[0]
             }
