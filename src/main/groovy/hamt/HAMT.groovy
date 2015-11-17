@@ -16,17 +16,17 @@ import groovy.transform.CompileStatic
  *
  *  Header:
  *
- *  |-4b-|b|2b|2b|2b|-5b--|
- *     |  |  |  |  |   |
- *     |  |  |  |  |   Number of levels (n)
- *     |  |  |  |  |
- *     |  |  |  |  Bitmask size in bytes (2^n)
- *     |  |  |  |
- *     |  |  |  Pointer size in bytes (n+1)
- *     |  |  |
- *     |  |  Value size (2^n)
- *     |  Variable value size flag (not implemented yet)
- *     |
+ *  |3b-|b|2b|2b|3b-|-5b--|
+ *    |  |  |  |  |   |
+ *    |  |  |  |  |   Number of levels (n)
+ *    |  |  |  |  |
+ *    |  |  |  |  Bitmask size in bytes (2^n)
+ *    |  |  |  |
+ *    |  |  |  Pointer size in bytes (n+1)
+ *    |  |  |
+ *    |  |  Value size (2^n)
+ *    |  Variable value size flag (not implemented yet)
+ *    |
  *     Reserved
  *
  *  Data:
@@ -37,9 +37,9 @@ import groovy.transform.CompileStatic
 class HAMT {
     static public final int NUM_LEVELS_OFFSET = 0
     static public final int BITMASK_SIZE_OFFSET = 5
-    static public final int PTR_SIZE_OFFSET = 7
-    static public final int VALUE_SIZE_OFFSET = 9
-    static public final int VARIABLE_VALUE_SIZE_OFFSET = 11
+    static public final int PTR_SIZE_OFFSET = 8
+    static public final int VALUE_SIZE_OFFSET = 10
+    static public final int VARIABLE_VALUE_SIZE_OFFSET = 12
     static public final int[] POINTER_SIZES = [0, 1, 2] as int[]
 
     static enum BitmaskSize {
