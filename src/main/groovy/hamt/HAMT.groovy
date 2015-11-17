@@ -34,25 +34,25 @@ import groovy.transform.CompileStatic
  *  [<Bitmask><LayerData>]
  */
 @CompileStatic
-class HAMT {
-    static public final int NUM_LEVELS_OFFSET = 0
-    static public final int BITMASK_SIZE_OFFSET = 5
-    static public final int PTR_SIZE_OFFSET = 8
-    static public final int VALUE_SIZE_OFFSET = 10
-    static public final int VARIABLE_VALUE_SIZE_OFFSET = 12
-    static public final int LEVELS_MASK = 0b0001_1111
-    static public final int BITMASK_SIZE_MASK = 0b0000_0111
-    static public final int PTR_SIZE_MASK = 0b0000_0011
-    static public final int VALUE_SIZE_MASK = 0b0000_0011
+public class HAMT {
+    public static final int NUM_LEVELS_OFFSET = 0
+    public static final int BITMASK_SIZE_OFFSET = 5
+    public static final int PTR_SIZE_OFFSET = 8
+    public static final int VALUE_SIZE_OFFSET = 10
+    public static final int VARIABLE_VALUE_SIZE_OFFSET = 12
+    public static final int LEVELS_MASK = 0b0001_1111
+    public static final int BITMASK_SIZE_MASK = 0b0000_0111
+    public static final int PTR_SIZE_MASK = 0b0000_0011
+    public static final int VALUE_SIZE_MASK = 0b0000_0011
 
-    static enum BitmaskSize {
+    public static enum BitmaskSize {
         BYTE(1), SHORT(2), INT(4), LONG(8)
 
         public final int size
         public final int shiftBits
         public final int shiftMask
 
-        BitmaskSize(int size) {
+        public BitmaskSize(int size) {
             this.size = size
             this.shiftBits = 31 - Integer.numberOfLeadingZeros(this.size << 3)
             this.shiftMask = (1 << this.shiftBits) - 1
@@ -62,7 +62,7 @@ class HAMT {
             return this.shiftBits - 3
         }
 
-        static BitmaskSize get(int size) {
+        public static BitmaskSize get(int size) {
             for (BitmaskSize bitmaskSize : values()) {
                 if (bitmaskSize.size == size) {
                     return bitmaskSize
@@ -72,13 +72,13 @@ class HAMT {
         }
     }
     
-    static enum ValueSize {
+    public static enum ValueSize {
         BYTE(1), SHORT(2), INT(4), LONG(8), VAR(-1)
 
         public final int size
         public final int shiftBits
 
-        ValueSize(int size) {
+        public ValueSize(int size) {
             this.size = size
             this.shiftBits = 31 - Integer.numberOfLeadingZeros(this.size << 3)
         }
@@ -87,7 +87,7 @@ class HAMT {
             return this.shiftBits - 3
         }
 
-        static ValueSize get(int size) {
+        public static ValueSize get(int size) {
             for (ValueSize valueSize : values()) {
                 if (valueSize.size == size) {
                     return valueSize
@@ -97,7 +97,7 @@ class HAMT {
         }
     }
     
-    static class Writer {
+    public static class Writer {
         private final BitmaskSize bitmaskSize
         private final ValueSize valueSize
 
@@ -152,7 +152,7 @@ class HAMT {
             return (short) header
         }
 
-        byte[] dump(Map<Long,byte[]> map) {
+        public byte[] dump(Map<Long,byte[]> map) {
             int numLevels = getLevels(map)
             List<LayerData> layers = [new LayerData(this.bitmaskSize.size)]
             Map<Long,LayerData> layersMap = [:]
@@ -250,7 +250,7 @@ class HAMT {
         }
     }
 
-    static class Reader {
+    public static class Reader {
         private final int numLevels;
         private final BitmaskSize bitmaskSize;
         private final int ptrSize;
@@ -321,12 +321,12 @@ class HAMT {
             return layerOffset + bitmask.length + ptrOffset * this.valueSize.size
         }
 
-        boolean exists(int key) {
+        public boolean exists(int key) {
             int valueOffset = getValueOffset(key)
             return valueOffset > 0 ? true : false
         }
 
-        byte[] get(int key, byte[] defaultValue) {
+        public byte[] get(int key, byte[] defaultValue) {
             int valueOffset = getValueOffset(key)
             if (valueOffset > 0) {
                 byte[] value = new byte[this.valueSize.size]
