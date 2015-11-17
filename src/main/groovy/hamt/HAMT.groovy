@@ -40,7 +40,10 @@ class HAMT {
     static public final int PTR_SIZE_OFFSET = 8
     static public final int VALUE_SIZE_OFFSET = 10
     static public final int VARIABLE_VALUE_SIZE_OFFSET = 12
-    static public final int[] POINTER_SIZES = [0, 1, 2] as int[]
+    static public final int LEVELS_MASK = 0b0001_1111
+    static public final int BITMASK_SIZE_MASK = 0b0000_0111
+    static public final int PTR_SIZE_MASK = 0b0000_0011
+    static public final int VALUE_SIZE_MASK = 0b0000_0011
 
     static enum BitmaskSize {
         BYTE(1), SHORT(2), INT(4), LONG(8)
@@ -253,11 +256,6 @@ class HAMT {
         private final int ptrSize;
         private final ValueSize valueSize;
         private final ByteBuffer buffer
-
-        private static int LEVELS_MASK = 0b0001_1111
-        private static int BITMASK_SIZE_MASK = 0b0000_0011
-        private static int PTR_SIZE_MASK = 0b0000_0011
-        private static int VALUE_SIZE_MASK = 0b0000_0011
 
         private static byte[] BIT_COUNT_MASKS = [
             0b0000_0000,
