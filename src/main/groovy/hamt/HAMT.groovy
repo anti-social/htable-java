@@ -48,6 +48,13 @@ public class HAMT {
     public static enum BitmaskSize {
         BYTE(1), SHORT(2), INT(4), LONG(8)
 
+        private static final Map<Integer,BitmaskSize> sizesMap = new HashMap<>()
+        static {
+            for (BitmaskSize bitmaskSize : values()) {
+                sizesMap.put(bitmaskSize.size, bitmaskSize)
+            }
+        }
+
         public final int size
         public final int shiftBits
         public final int shiftMask
@@ -58,22 +65,28 @@ public class HAMT {
             this.shiftMask = (1 << this.shiftBits) - 1
         }
 
-        int encode() {
+        public int encode() {
             return this.shiftBits - 3
         }
 
         public static BitmaskSize get(int size) {
-            for (BitmaskSize bitmaskSize : values()) {
-                if (bitmaskSize.size == size) {
-                    return bitmaskSize
-                }
-            }
-            return null
+            return sizesMap.get(size)
+        }
+
+        public static BitmaskSize decode(int value) {
+            return BitmaskSize.get(1 << value)
         }
     }
     
     public static enum ValueSize {
         BYTE(1), SHORT(2), INT(4), LONG(8), VAR(-1)
+
+        private static final Map<Integer,ValueSize> sizesMap = new HashMap<>()
+        static {
+            for (ValueSize valueSize : values()) {
+                sizesMap.put(valueSize.size, valueSize)
+            }
+        }
 
         public final int size
         public final int shiftBits
@@ -83,17 +96,16 @@ public class HAMT {
             this.shiftBits = 31 - Integer.numberOfLeadingZeros(this.size << 3)
         }
 
-        int encode() {
+        public int encode() {
             return this.shiftBits - 3
         }
 
         public static ValueSize get(int size) {
-            for (ValueSize valueSize : values()) {
-                if (valueSize.size == size) {
-                    return valueSize
-                }
-            }
-            return null
+            return sizesMap.get(size)
+        }
+
+        public static ValueSize decode(int value) {
+            return ValueSize.get(1 << value)
         }
     }
     
@@ -278,9 +290,9 @@ public class HAMT {
             ByteBuffer buffer = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN)
             short header = buffer.getShort()
             this.numLevels = ((header >>> NUM_LEVELS_OFFSET) & LEVELS_MASK)
-            this.bitmaskSize = BitmaskSize.get(1 << ((header >>> BITMASK_SIZE_OFFSET) & BITMASK_SIZE_MASK))
+            this.bitmaskSize = BitmaskSize.decode((header >>> BITMASK_SIZE_OFFSET) & BITMASK_SIZE_MASK)
             this.ptrSize = ((header >>> PTR_SIZE_OFFSET) & PTR_SIZE_MASK) + 1
-            this.valueSize = ValueSize.get(1 << ((header >>> VALUE_SIZE_OFFSET) & VALUE_SIZE_MASK))
+            this.valueSize = ValueSize.decode((header >>> VALUE_SIZE_OFFSET) & VALUE_SIZE_MASK)
             this.buffer = buffer.slice()
         }
 
