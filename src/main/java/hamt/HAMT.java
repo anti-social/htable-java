@@ -302,6 +302,8 @@ public class HAMT {
             int layerOffset = 0;
             int ptrOffset = 0;
             byte[] bitmask = new byte[this.bitmaskSize.size];
+            byte[] ptrBytes = new byte[this.ptrSize];
+            PointerDecoder ptrDecoder = POINTER_DECODERS[this.ptrSize - 1];
             for (int level = numLevels - 1; level >= 0; level--) {
                 long k = key >>> (level * this.bitmaskSize.shiftBits) & this.bitmaskSize.shiftMask;
                 int nByte = (int) (k >>> 3);
@@ -319,10 +321,9 @@ public class HAMT {
                 }
                 ptrOffset = bitCounter.count(bitmask, nByte, nBit);
                 if (level != 0) {
-                    this.buffer.position(layerOffset + bitmask.length + ptrOffset * ptrSize);
-                    byte[] nextLayoutOffsetBuffer = new byte[ptrSize];
-                    this.buffer.get(nextLayoutOffsetBuffer);
-                    layerOffset = Utils.byteArrayToPtrLE(nextLayoutOffsetBuffer);
+                    this.buffer.position(layerOffset + bitmask.length + ptrOffset * this.ptrSize);
+                    this.buffer.get(ptrBytes);
+                    layerOffset = ptrDecoder.decode(ptrBytes);
                 }
             }
             return layerOffset + bitmask.length + ptrOffset * this.valueSize.size;
@@ -397,6 +398,44 @@ public class HAMT {
                     count += BIT_COUNTS[b];
                 }
                 return count;
+            }
+        }
+
+        private static final PointerDecoder[] POINTER_DECODERS = new PointerDecoder[] {
+            new PointerDecoder() {
+                @Override
+                int decode(byte[] array) {
+                    return array[0] & 0xff;
+                }
+            },
+            new PointerDecoder() {
+                @Override
+                int decode(byte[] array) {
+                    return (array[0] & 0xff) | ((array[1] & 0xff) << 8);
+                }
+            },
+            new PointerDecoder() {
+                @Override
+                int decode(byte[] array) {
+                    return (array[0] & 0xff) | ((array[1] & 0xff) << 8) | ((array[2] & 0xff) << 16);
+                }
+            },
+            new PointerDecoder() {
+                @Override
+                int decode(byte[] array) {
+                    return (array[0] & 0xff) | ((array[1] & 0xff) << 8) | ((array[2] & 0xff) << 16) | ((array[3] & 0xff) << 24);
+                }
+            }
+        };
+        
+        static class PointerDecoder {
+            int decode(byte[] array) {
+                int ptrSize = array.length;
+                int ptr = array[0] & 0xff;
+                for (int i = 0; i < ptrSize; i++) {
+                    ptr |= (array[i] & 0xff) << (i * 8);
+                }
+                return ptr;
             }
         }
     }
