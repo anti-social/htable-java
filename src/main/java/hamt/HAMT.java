@@ -313,13 +313,7 @@ public class HAMT {
                 if ((bitmask[nByte] & (1 << nBit)) == 0) {
                     return -1;
                 }
-                BitCounter bitCounter;
-                if (nByte < BIT_COUNTERS.length) {
-                    bitCounter = BIT_COUNTERS[nByte];
-                } else {
-                    bitCounter = DEFAULT_BIT_COUNTER;
-                }
-                ptrOffset = bitCounter.count(bitmask, nByte, nBit);
+                ptrOffset = BIT_COUNTERS[nByte].count(bitmask, nByte, nBit);
                 if (level != 0) {
                     this.buffer.position(layerOffset + bitmask.length + ptrOffset * this.ptrSize);
                     this.buffer.get(ptrBytes);
@@ -371,6 +365,10 @@ public class HAMT {
                     return BIT_COUNTS[bytes[0] & 0xff] + BIT_COUNTS[bytes[1] & 0xff] + BIT_COUNTS[bytes[2] & 0xff] + BIT_COUNTS[bytes[3] & BIT_COUNT_MASKS[nBit]];
                 }
             },
+            DEFAULT_BIT_COUNTER,
+            DEFAULT_BIT_COUNTER,
+            DEFAULT_BIT_COUNTER,
+            DEFAULT_BIT_COUNTER,
         };
 
         static class BitCounter {
