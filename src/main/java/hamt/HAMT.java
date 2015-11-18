@@ -279,23 +279,6 @@ public class HAMT {
         private final ValueSize valueSize;
         private final ByteBuffer buffer;
 
-        private static byte[] BIT_COUNT_MASKS = new byte[]{
-            0b0000_0000,
-            0b0000_0001,
-            0b0000_0011,
-            0b0000_0111,
-            0b0000_1111,
-            0b0001_1111,
-            0b0011_1111,
-            0b0111_1111
-        };
-        private static byte[] BIT_COUNTS = new byte[256];
-        static {
-            for (int i = 0; i <= 255; i++) {
-                BIT_COUNTS[i] = (byte) Integer.bitCount(i);
-            }
-        }
-
         public Reader(byte[] data) {
             ByteBuffer buffer = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN);
             short header = buffer.getShort();
@@ -328,11 +311,13 @@ public class HAMT {
                 if ((bitmask[nByte] & (1 << nBit)) == 0) {
                     return -1;
                 }
-                ptrOffset = BIT_COUNTS[bitmask[nByte] & BIT_COUNT_MASKS[nBit]];
-                for (int bitmaskIx = nByte - 1; bitmaskIx >= 0; bitmaskIx--) {
-                    int bitmaskByte = bitmask[bitmaskIx] & 0xff;
-                    ptrOffset += BIT_COUNTS[bitmaskByte];
+                BitCounter bitCounter;
+                if (nByte < BIT_COUNTERS.length) {
+                    bitCounter = BIT_COUNTERS[nByte];
+                } else {
+                    bitCounter = DEFAULT_BIT_COUNTER;
                 }
+                ptrOffset = bitCounter.count(bitmask, nByte, nBit);
                 if (level != 0) {
                     this.buffer.position(layerOffset + bitmask.length + ptrOffset * ptrSize);
                     byte[] nextLayoutOffsetBuffer = new byte[ptrSize];
@@ -357,6 +342,62 @@ public class HAMT {
                 return value;
             }
             return defaultValue;
+        }
+
+        private static final BitCounter DEFAULT_BIT_COUNTER = new BitCounter();
+        private static final BitCounter[] BIT_COUNTERS = new BitCounter[] {
+            new BitCounter() {
+                @Override
+                int count(byte[] bytes, int nByte, int nBit) {
+                    return BIT_COUNTS[bytes[0] & BIT_COUNT_MASKS[nBit]];
+                }
+            },
+            new BitCounter() {
+                @Override
+                int count(byte[] bytes, int nByte, int nBit) {
+                    return BIT_COUNTS[bytes[0] & 0xff] + BIT_COUNTS[bytes[1] & BIT_COUNT_MASKS[nBit]];
+                }
+            },
+            new BitCounter() {
+                @Override
+                int count(byte[] bytes, int nByte, int nBit) {
+                    return BIT_COUNTS[bytes[0] & 0xff] + BIT_COUNTS[bytes[1] & 0xff] + BIT_COUNTS[bytes[2] & BIT_COUNT_MASKS[nBit]];
+                }
+            },
+            new BitCounter() {
+                @Override
+                int count(byte[] bytes, int nByte, int nBit) {
+                    return BIT_COUNTS[bytes[0] & 0xff] + BIT_COUNTS[bytes[1] & 0xff] + BIT_COUNTS[bytes[2] & 0xff] + BIT_COUNTS[bytes[3] & BIT_COUNT_MASKS[nBit]];
+                }
+            },
+        };
+
+        static class BitCounter {
+            protected static byte[] BIT_COUNT_MASKS = new byte[]{
+                0b0000_0000,
+                0b0000_0001,
+                0b0000_0011,
+                0b0000_0111,
+                0b0000_1111,
+                0b0001_1111,
+                0b0011_1111,
+                0b0111_1111
+            };
+            protected static byte[] BIT_COUNTS = new byte[256];
+            static {
+                for (int i = 0; i <= 255; i++) {
+                    BIT_COUNTS[i] = (byte) Integer.bitCount(i);
+                }
+            }
+
+            int count(byte[] bytes, int nByte, int nBit) {
+                int count = BIT_COUNTS[bytes[nByte] & BIT_COUNT_MASKS[nBit]];
+                for (int byteIx = nByte - 1; byteIx >= 0; byteIx--) {
+                    int b = bytes[byteIx] & 0xff;
+                    count += BIT_COUNTS[b];
+                }
+                return count;
+            }
         }
     }
 
