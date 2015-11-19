@@ -31,7 +31,9 @@ class HAMTBenchmark {
         long startTime = System.nanoTime()
         byte[] value = cycle(CYCLES)
         long endTime = System.nanoTime()
-        println "Run ${CYCLES} cycles: ${(endTime - startTime) / 1000000} ms"
+        def milliseconds = (endTime - startTime) / 1_000_000
+        println "Run ${CYCLES} cycles: ${milliseconds} ms"
+        println "${(long) (CYCLES / (milliseconds / 1000))} operations per second"
         println "Value is: ${value}"
     }
 
