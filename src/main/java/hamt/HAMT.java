@@ -3,6 +3,7 @@ package hamt;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -122,6 +123,10 @@ public class HAMT {
             this(BitmaskSize.get(bitmaskSize), ValueSize.get(valueSize));
         }
 
+        public ValueSize valueSize() {
+            return valueSize;
+        }
+
         int getLevels(long maxKey) {
             int levels = 1;
             long key = maxKey >>> this.bitmaskSize.shiftBits;
@@ -164,14 +169,68 @@ public class HAMT {
             return (short) header;
         }
 
-        public byte[] dump(List<Long> keys, List<byte[]> values) {
-            assert keys.size() == values.size();
+        public byte[] dumpBytes(List<Long> keys, List<Byte> values) {
+            return dumpBytes(Utils.toLongArray(keys), Utils.toByteArray(values));
+        }
 
-            if (keys.size() == 0) {
+        public byte[] dumpBytes(long[] keys, byte[] values) {
+            assert valueSize == ValueSize.BYTE;
+            byte[][] bytesArray = new byte[values.length][];
+            for (int i = 0; i < values.length; i++) {
+                bytesArray[i] = new byte[]{ values[i] };
+            }
+            return dump(keys, bytesArray);
+        }
+
+        // public byte[] dumpShorts(List<Long> keys, List<Short> values) {
+        //     assert valueSize == ValueSize.SHORT;
+        //     return dump(keys,
+        //                 new ArrayList<byte[]>(values.size()) {{ for (short v : values) { add(Utils.shortToBytesLE(v)); } }});
+        // }
+
+        // public byte[] dumpInts(List<Long> keys, List<Integer> values) {
+        //     assert valueSize == ValueSize.INT;
+        //     return dump(keys,
+        //                 new ArrayList<byte[]>(values.size()) {{ for (int v : values) { add(Utils.intToBytesLE(v)); } }});
+        // }
+
+        // public byte[] dumpLongs(List<Long> keys, List<Long> values) {
+        //     assert valueSize == ValueSize.LONG;
+        //     return dump(keys,
+        //                 new ArrayList<byte[]>(values.size()) {{ for (long v : values) { add(Utils.longToBytesLE(v)); } }});
+        // }
+
+        public byte[] dumpFloats(List<Long> keys, List<Float> values) {
+            return dumpFloats(Utils.toLongArray(keys), Utils.toFloatArray(values));
+        }
+
+        public byte[] dumpFloats(long[] keys, float[] values) {
+            assert valueSize == ValueSize.INT;
+            byte[][] bytesArray = new byte[values.length][];
+            for (int i = 0; i < values.length; i++) {
+                bytesArray[i] = Utils.floatToBytesLE(values[i]);
+            }
+            return dump(keys, bytesArray);
+        }
+
+        // public byte[] dumpDoubles(List<Long> keys, List<Double> values) {
+        //     assert valueSize == ValueSize.LONG;
+        //     return dump(keys,
+        //                 new ArrayList<byte[]>(values.size()) {{ for (double v : values) { add(Utils.doubleToBytesLE(v)); } }});
+        // }
+
+        public byte[] dump(List<Long> keys, List<byte[]> values) {
+            return dump(Utils.toLongArray(keys), Utils.toBytesArray(values));
+        }
+
+        public byte[] dump(long[] keys, byte[][] values) {
+            assert keys.length == values.length;
+
+            if (keys.length == 0) {
                 return new byte[0];
             }
 
-            long maxKey = keys.get(keys.size() - 1);
+            long maxKey = keys[keys.length - 1];
             int numLevels = getLevels(maxKey);
             List<LayerData> layers = new ArrayList<>();
             layers.add(new LayerData(this.bitmaskSize.size));
@@ -186,7 +245,7 @@ public class HAMT {
                     int k = (int) (key >>> ((l - 1) * this.bitmaskSize.shiftBits) & this.bitmaskSize.shiftMask);
                     LayerData layer = layersMap.get(key);
                     if (l == 1) {
-                        layer.addValue(values.get(i));
+                        layer.addValue(values[i]);
                     } else {
                         LayerData subLayer = layer.newLayer(k);
                         if (subLayer != prevSubLayer) {
@@ -261,7 +320,7 @@ public class HAMT {
                 buffer.put(this.bitmask);
                 if (!this.layers.isEmpty()) {
                     for (LayerData l : this.layers) {
-                        buffer.put(Utils.ptrToByteArrayLE(l.offset, ptrSize));
+                        buffer.put(POINTER_DECODERS[ptrSize - 1].encode(l.offset));
                     }
                 } else {
                     for (byte[] v : this.values) {
@@ -287,6 +346,22 @@ public class HAMT {
             this.ptrSize = ((header >>> PTR_SIZE_OFFSET) & PTR_SIZE_MASK) + 1;
             this.valueSize = ValueSize.decode((header >>> VALUE_SIZE_OFFSET) & VALUE_SIZE_MASK);
             this.buffer = buffer.slice();
+        }
+
+        public int numLevels() {
+            return numLevels;
+        }
+
+        public BitmaskSize bitmaskSize() {
+            return bitmaskSize;
+        }
+
+        public int ptrSize() {
+            return ptrSize;
+        }
+
+        public ValueSize valueSize() {
+            return valueSize;
         }
 
         int getValueOffset(long key) {
@@ -399,78 +474,153 @@ public class HAMT {
             }
         }
 
-        private static final PointerDecoder[] POINTER_DECODERS = new PointerDecoder[] {
-            new PointerDecoder() {
-                @Override
-                int decode(byte[] array) {
-                    return array[0] & 0xff;
-                }
-            },
-            new PointerDecoder() {
-                @Override
-                int decode(byte[] array) {
-                    return (array[0] & 0xff) | ((array[1] & 0xff) << 8);
-                }
-            },
-            new PointerDecoder() {
-                @Override
-                int decode(byte[] array) {
-                    return (array[0] & 0xff) | ((array[1] & 0xff) << 8) | ((array[2] & 0xff) << 16);
-                }
-            },
-            new PointerDecoder() {
-                @Override
-                int decode(byte[] array) {
-                    return (array[0] & 0xff) | ((array[1] & 0xff) << 8) | ((array[2] & 0xff) << 16) | ((array[3] & 0xff) << 24);
-                }
-            }
-        };
-        
-        static class PointerDecoder {
-            int decode(byte[] array) {
-                int ptrSize = array.length;
-                int ptr = array[0] & 0xff;
-                for (int i = 0; i < ptrSize; i++) {
-                    ptr |= (array[i] & 0xff) << (i * 8);
-                }
-                return ptr;
-            }
-        }
     }
 
-    static class Utils {
-        static byte[] ptrToByteArrayLE(int ptr, int ptrSize) {
-            byte[] res = new byte[ptrSize];
-            for (int i = 0; i < ptrSize; i++) {
-                res[i] = (byte) ((ptr >>> (i * 8)) & 0xff);
+    private static final PointerDecoder[] POINTER_DECODERS = new PointerDecoder[] {
+        new PointerDecoder() {
+            @Override
+            public byte[] encode(int ptr) {
+                return new byte[]{ (byte) (ptr & 0xff) };
             }
-            return res;
+
+            @Override
+            public int decode(byte[] array) {
+                return array[0] & 0xff;
+            }
+        },
+        new PointerDecoder() {
+            @Override
+            public byte[] encode(int ptr) {
+                return new byte[]{ (byte) (ptr & 0xff),
+                                   (byte) ((ptr >>> 8) & 0xff) };
+            }
+
+            @Override
+            public int decode(byte[] array) {
+                return (array[0] & 0xff) | ((array[1] & 0xff) << 8);
+            }
+        },
+        new PointerDecoder() {
+            @Override
+            public byte[] encode(int ptr) {
+                return new byte[]{ (byte) (ptr & 0xff),
+                                   (byte) ((ptr >>> 8) & 0xff),
+                                   (byte) ((ptr >>> 16) & 0xff) };
+            }
+
+            @Override
+            public int decode(byte[] array) {
+                return (array[0] & 0xff) | ((array[1] & 0xff) << 8) | ((array[2] & 0xff) << 16);
+            }
+        },
+        new PointerDecoder() {
+            @Override
+            public byte[] encode(int ptr) {
+                return new byte[]{ (byte) (ptr & 0xff),
+                                   (byte) ((ptr >>> 8) & 0xff),
+                                   (byte) ((ptr >>> 16) & 0xff),
+                                   (byte) ((ptr >>> 24) & 0xff) };
+            }
+
+            @Override
+            public int decode(byte[] array) {
+                return (array[0] & 0xff) | ((array[1] & 0xff) << 8) | ((array[2] & 0xff) << 16) | ((array[3] & 0xff) << 24);
+            }
+        }
+    };
+        
+    interface PointerDecoder {
+        byte[] encode(int ptr);
+            
+        int decode(byte[] array);
+    }
+
+    public static class Utils {
+        public static byte[] shortToBytesLE(short v) {
+            return new byte[]{ (byte) (v & 0xff),
+                               (byte) ((v >>> 8) & 0xff) };
         }
 
-        static int byteArrayToPtrLE(byte[] array) {
-            int ptrSize = array.length;
-            int ptr = array[0] & 0xff;
-            for (int i = 0; i < ptrSize; i++) {
-                ptr |= (array[i] & 0xff) << (i * 8);
-            }
-            return ptr;
+        public static byte[] intToBytesLE(int v) {
+            return new byte[]{ (byte) (v & 0xff),
+                               (byte) ((v >>> 8) & 0xff),
+                               (byte) ((v >>> 16) & 0xff),
+                               (byte) ((v >>> 24) & 0xff) };
         }
 
-        static byte[] ptrToByteArrayBE(int ptr, int ptrSize) {
-            byte[] res = new byte[ptrSize];
-            for (int i = 0; i < ptrSize; i++) {
-                res[ptrSize - i - 1] = (byte) ((ptr >>> (i * 8)) & 0xff);
-            }
-            return res;
+        public static byte[] longToBytesLE(long v) {
+            return new byte[]{ (byte) (v & 0xff),
+                               (byte) ((v >>> 8) & 0xff),
+                               (byte) ((v >>> 16) & 0xff),
+                               (byte) ((v >>> 24) & 0xff),
+                               (byte) ((v >>> 32) & 0xff),
+                               (byte) ((v >>> 40) & 0xff),
+                               (byte) ((v >>> 48) & 0xff),
+                               (byte) ((v >>> 56) & 0xff) };
         }
 
-        static int byteArrayToPtrBE(byte[] array) {
-            int ptrSize = array.length;
-            int ptr = (array[0] & 0xff) << ((ptrSize - 1) * 8);
-            for (int i = 0; i < ptrSize; i++) {
-                ptr |= (array[i] & 0xff) << ((ptrSize - 1 - i) * 8);
+        public static byte[] floatToBytesLE(float v) {
+            return intToBytesLE(Float.floatToIntBits(v));
+        }
+
+        public static byte[] doubleToBytesLE(double v) {
+            return longToBytesLE(Double.doubleToLongBits(v));
+        }
+
+        public static byte[] toByteArray(List<Byte> values) {
+            byte[] array = new byte[values.size()];
+            for (int i = 0; i < array.length; i++) {
+                array[i] = values.get(i);
             }
-            return ptr;
+            return array;
+        }
+
+        public static byte[][] toBytesArray(List<byte[]> values) {
+            byte[][] array = new byte[values.size()][];
+            for (int i = 0; i < array.length; i++) {
+                array[i] = values.get(i);
+            }
+            return array;
+        }
+
+        public static short[] toShortArray(List<Short> values) {
+            short[] array = new short[values.size()];
+            for (int i = 0; i < array.length; i++) {
+                array[i] = values.get(i);
+            }
+            return array;
+        }
+
+        public static int[] toIntArray(List<Integer> values) {
+            int[] array = new int[values.size()];
+            for (int i = 0; i < array.length; i++) {
+                array[i] = values.get(i);
+            }
+            return array;
+        }
+
+        public static long[] toLongArray(List<Long> values) {
+            long[] array = new long[values.size()];
+            for (int i = 0; i < array.length; i++) {
+                array[i] = values.get(i);
+            }
+            return array;
+        }
+
+        public static float[] toFloatArray(List<Float> values) {
+            float[] array = new float[values.size()];
+            for (int i = 0; i < array.length; i++) {
+                array[i] = values.get(i);
+            }
+            return array;
+        }
+
+        public static double[] toDoubleArray(List<Double> values) {
+            double[] array = new double[values.size()];
+            for (int i = 0; i < array.length; i++) {
+                array[i] = values.get(i);
+            }
+            return array;
         }
     }
 }
