@@ -185,19 +185,19 @@ public class HAMT {
         // public byte[] dumpShorts(List<Long> keys, List<Short> values) {
         //     assert valueSize == ValueSize.SHORT;
         //     return dump(keys,
-        //                 new ArrayList<byte[]>(values.size()) {{ for (short v : values) { add(Utils.shortToBytesLE(v)); } }});
+        //                 new ArrayList<byte[]>(values.size()) {{ for (short v : values) { add(Utils.shortToBytes(v)); } }});
         // }
 
         // public byte[] dumpInts(List<Long> keys, List<Integer> values) {
         //     assert valueSize == ValueSize.INT;
         //     return dump(keys,
-        //                 new ArrayList<byte[]>(values.size()) {{ for (int v : values) { add(Utils.intToBytesLE(v)); } }});
+        //                 new ArrayList<byte[]>(values.size()) {{ for (int v : values) { add(Utils.intToBytes(v)); } }});
         // }
 
         // public byte[] dumpLongs(List<Long> keys, List<Long> values) {
         //     assert valueSize == ValueSize.LONG;
         //     return dump(keys,
-        //                 new ArrayList<byte[]>(values.size()) {{ for (long v : values) { add(Utils.longToBytesLE(v)); } }});
+        //                 new ArrayList<byte[]>(values.size()) {{ for (long v : values) { add(Utils.longToBytes(v)); } }});
         // }
 
         public byte[] dumpFloats(List<Long> keys, List<Float> values) {
@@ -208,7 +208,7 @@ public class HAMT {
             assert valueSize == ValueSize.INT;
             byte[][] bytesArray = new byte[values.length][];
             for (int i = 0; i < values.length; i++) {
-                bytesArray[i] = Utils.floatToBytesLE(values[i]);
+                bytesArray[i] = Utils.floatToBytes(values[i]);
             }
             return dump(keys, bytesArray);
         }
@@ -216,7 +216,7 @@ public class HAMT {
         // public byte[] dumpDoubles(List<Long> keys, List<Double> values) {
         //     assert valueSize == ValueSize.LONG;
         //     return dump(keys,
-        //                 new ArrayList<byte[]>(values.size()) {{ for (double v : values) { add(Utils.doubleToBytesLE(v)); } }});
+        //                 new ArrayList<byte[]>(values.size()) {{ for (double v : values) { add(Utils.doubleToBytes(v)); } }});
         // }
 
         public byte[] dump(List<Long> keys, List<byte[]> values) {
@@ -266,6 +266,7 @@ public class HAMT {
                 layer.setOffset(bufferSize - 2);
                 bufferSize += layerSize;
             }
+
             ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
             buffer.order(ByteOrder.LITTLE_ENDIAN);
             buffer.putShort(getHeader(numLevels, ptrSize));
@@ -338,6 +339,8 @@ public class HAMT {
         private final ValueSize valueSize;
         private final ByteBuffer buffer;
 
+        public static final int NOT_FOUND_OFFSET = -1;
+
         public Reader(byte[] data) {
             ByteBuffer buffer = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN);
             short header = buffer.getShort();
@@ -364,14 +367,14 @@ public class HAMT {
             return valueSize;
         }
 
-        int getValueOffset(long key) {
+        public int getValueOffset(long key) {
             this.buffer.position(0);
 
             if (
                 this.numLevels * this.bitmaskSize.shiftBits < 64
                 && key >>> (this.numLevels * this.bitmaskSize.shiftBits) > 0
             ) {
-                return -1;
+                return NOT_FOUND_OFFSET;
             }
 
             int layerOffset = 0;
@@ -386,7 +389,7 @@ public class HAMT {
                 this.buffer.position(layerOffset);
                 this.buffer.get(bitmask);
                 if ((bitmask[nByte] & (1 << nBit)) == 0) {
-                    return -1;
+                    return NOT_FOUND_OFFSET;
                 }
                 ptrOffset = BIT_COUNTERS[nByte].count(bitmask, nByte, nBit);
                 if (level != 0) {
@@ -403,15 +406,50 @@ public class HAMT {
             return valueOffset > 0 ? true : false;
         }
 
+        public byte getByte(int valueOffset) {
+            assert this.valueSize == ValueSize.BYTE;
+            return this.buffer.get(valueOffset);
+        }
+
+        public short getShort(int valueOffset) {
+            assert this.valueSize == ValueSize.SHORT;
+            return Utils.bytesToShort(get(valueOffset));
+        }
+
+        public int getInt(int valueOffset) {
+            assert this.valueSize == ValueSize.INT;
+            return Utils.bytesToInt(get(valueOffset));
+        }
+
+        public long getLong(int valueOffset) {
+            assert this.valueSize == ValueSize.LONG;
+            return Utils.bytesToLong(get(valueOffset));
+        }
+
+        public float getFloat(int valueOffset) {
+            assert this.valueSize == ValueSize.INT;
+            byte[] value = new byte[this.valueSize.size];
+            return Utils.bytesToFloat(get(valueOffset));
+        }
+
+        public double getDouble(int valueOffset) {
+            assert this.valueSize == ValueSize.LONG;
+            return Utils.bytesToDouble(get(valueOffset));
+        }
+
+        public byte[] get(int valueOffset) {
+            byte[] value = new byte[this.valueSize.size];
+            this.buffer.position(valueOffset);
+            this.buffer.get(value);
+            return value;
+        }
+
         public byte[] get(long key, byte[] defaultValue) {
             int valueOffset = getValueOffset(key);
-            if (valueOffset > 0) {
-                byte[] value = new byte[this.valueSize.size];
-                this.buffer.position(valueOffset);
-                this.buffer.get(value);
-                return value;
+            if (valueOffset == NOT_FOUND_OFFSET) {
+                return defaultValue;
             }
-            return defaultValue;
+            return get(valueOffset);
         }
 
         private static final BitCounter DEFAULT_BIT_COUNTER = new BitCounter();
@@ -516,15 +554,12 @@ public class HAMT {
         new PointerDecoder() {
             @Override
             public byte[] encode(int ptr) {
-                return new byte[]{ (byte) (ptr & 0xff),
-                                   (byte) ((ptr >>> 8) & 0xff),
-                                   (byte) ((ptr >>> 16) & 0xff),
-                                   (byte) ((ptr >>> 24) & 0xff) };
+                return Utils.intToBytes(ptr);
             }
 
             @Override
             public int decode(byte[] array) {
-                return (array[0] & 0xff) | ((array[1] & 0xff) << 8) | ((array[2] & 0xff) << 16) | ((array[3] & 0xff) << 24);
+                return Utils.bytesToInt(array);
             }
         }
     };
@@ -536,19 +571,19 @@ public class HAMT {
     }
 
     public static class Utils {
-        public static byte[] shortToBytesLE(short v) {
+        public static byte[] shortToBytes(short v) {
             return new byte[]{ (byte) (v & 0xff),
                                (byte) ((v >>> 8) & 0xff) };
         }
 
-        public static byte[] intToBytesLE(int v) {
+        public static byte[] intToBytes(int v) {
             return new byte[]{ (byte) (v & 0xff),
                                (byte) ((v >>> 8) & 0xff),
                                (byte) ((v >>> 16) & 0xff),
                                (byte) ((v >>> 24) & 0xff) };
         }
 
-        public static byte[] longToBytesLE(long v) {
+        public static byte[] longToBytes(long v) {
             return new byte[]{ (byte) (v & 0xff),
                                (byte) ((v >>> 8) & 0xff),
                                (byte) ((v >>> 16) & 0xff),
@@ -559,12 +594,44 @@ public class HAMT {
                                (byte) ((v >>> 56) & 0xff) };
         }
 
-        public static byte[] floatToBytesLE(float v) {
-            return intToBytesLE(Float.floatToIntBits(v));
+        public static byte[] floatToBytes(float v) {
+            return intToBytes(Float.floatToIntBits(v));
         }
 
-        public static byte[] doubleToBytesLE(double v) {
-            return longToBytesLE(Double.doubleToLongBits(v));
+        public static byte[] doubleToBytes(double v) {
+            return longToBytes(Double.doubleToLongBits(v));
+        }
+
+        public static short bytesToShort(byte[] array) {
+            return (short) ((array[0] & 0xff) | ((array[1] & 0xff) << 8));
+        }
+
+        public static int bytesToInt(byte[] array) {
+            return
+                (array[0] & 0xff) |
+                ((array[1] & 0xff) << 8) |
+                ((array[2] & 0xff) << 16) |
+                ((array[3] & 0xff) << 24);
+        }
+
+        public static long bytesToLong(byte[] array) {
+            return
+                (array[0] & 0xffL) |
+                ((array[1] & 0xffL) << 8) |
+                ((array[2] & 0xffL) << 16) |
+                ((array[3] & 0xffL) << 24) |
+                ((array[4] & 0xffL) << 32) |
+                ((array[5] & 0xffL) << 40) |
+                ((array[6] & 0xffL) << 48) |
+                ((array[7] & 0xffL) << 56);
+        }
+
+        public static float bytesToFloat(byte[] array) {
+            return Float.intBitsToFloat(bytesToInt(array));
+        }
+
+        public static double bytesToDouble(byte[] array) {
+            return Double.longBitsToDouble(bytesToLong(array));
         }
 
         public static byte[] toByteArray(List<Byte> values) {
