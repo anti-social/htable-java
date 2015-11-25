@@ -4,11 +4,13 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
 
 
 /**
@@ -169,7 +171,7 @@ public class HAMT {
             return (short) header;
         }
 
-        public byte[] dumpBytes(List<Long> keys, List<Byte> values) {
+        public byte[] dumpBytes(Collection<Long> keys, Collection<Byte> values) {
             return dumpBytes(Utils.toLongArray(keys), Utils.toByteArray(values));
         }
 
@@ -182,25 +184,46 @@ public class HAMT {
             return dump(keys, bytesArray);
         }
 
-        // public byte[] dumpShorts(List<Long> keys, List<Short> values) {
-        //     assert valueSize == ValueSize.SHORT;
-        //     return dump(keys,
-        //                 new ArrayList<byte[]>(values.size()) {{ for (short v : values) { add(Utils.shortToBytes(v)); } }});
-        // }
+        public byte[] dumpShorts(List<Long> keys, List<Short> values) {
+            return dumpShorts(Utils.toLongArray(keys), Utils.toShortArray(values));
+        }
 
-        // public byte[] dumpInts(List<Long> keys, List<Integer> values) {
-        //     assert valueSize == ValueSize.INT;
-        //     return dump(keys,
-        //                 new ArrayList<byte[]>(values.size()) {{ for (int v : values) { add(Utils.intToBytes(v)); } }});
-        // }
+        public byte[] dumpShorts(long[] keys, short[] values) {
+            assert valueSize == ValueSize.SHORT;
+            byte[][] bytesArray = new byte[values.length][];
+            for (int i = 0; i < values.length; i++) {
+                bytesArray[i] = Utils.shortToBytes(values[i]);
+            }
+            return dump(keys, bytesArray);
+        }
 
-        // public byte[] dumpLongs(List<Long> keys, List<Long> values) {
-        //     assert valueSize == ValueSize.LONG;
-        //     return dump(keys,
-        //                 new ArrayList<byte[]>(values.size()) {{ for (long v : values) { add(Utils.longToBytes(v)); } }});
-        // }
+        public byte[] dumpInts(List<Long> keys, List<Integer> values) {
+            return dumpInts(Utils.toLongArray(keys), Utils.toIntArray(values));
+        }
 
-        public byte[] dumpFloats(List<Long> keys, List<Float> values) {
+        public byte[] dumpInts(long[] keys, int[] values) {
+            assert valueSize == ValueSize.INT;
+            byte[][] bytesArray = new byte[values.length][];
+            for (int i = 0; i < values.length; i++) {
+                bytesArray[i] = Utils.intToBytes(values[i]);
+            }
+            return dump(keys, bytesArray);
+        }
+
+        public byte[] dumpLongs(List<Long> keys, List<Long> values) {
+            return dumpLongs(Utils.toLongArray(keys), Utils.toLongArray(values));
+        }
+
+        public byte[] dumpLongs(long[] keys, long[] values) {
+            assert valueSize == ValueSize.LONG;
+            byte[][] bytesArray = new byte[values.length][];
+            for (int i = 0; i < values.length; i++) {
+                bytesArray[i] = Utils.longToBytes(values[i]);
+            }
+            return dump(keys, bytesArray);
+        }
+
+        public byte[] dumpFloats(Collection<Long> keys, Collection<Float> values) {
             return dumpFloats(Utils.toLongArray(keys), Utils.toFloatArray(values));
         }
 
@@ -213,14 +236,25 @@ public class HAMT {
             return dump(keys, bytesArray);
         }
 
-        // public byte[] dumpDoubles(List<Long> keys, List<Double> values) {
-        //     assert valueSize == ValueSize.LONG;
-        //     return dump(keys,
-        //                 new ArrayList<byte[]>(values.size()) {{ for (double v : values) { add(Utils.doubleToBytes(v)); } }});
-        // }
+        public byte[] dumpDoubles(Collection<Long> keys, Collection<Double> values) {
+            return dumpDoubles(Utils.toLongArray(keys), Utils.toDoubleArray(values));
+        }
 
-        public byte[] dump(List<Long> keys, List<byte[]> values) {
+        public byte[] dumpDoubles(long[] keys, double[] values) {
+            assert valueSize == ValueSize.LONG;
+            byte[][] bytesArray = new byte[values.length][];
+            for (int i = 0; i < values.length; i++) {
+                bytesArray[i] = Utils.doubleToBytes(values[i]);
+            }
+            return dump(keys, bytesArray);
+        }
+
+        public byte[] dump(Collection<Long> keys, Collection<byte[]> values) {
             return dump(Utils.toLongArray(keys), Utils.toBytesArray(values));
+        }
+
+        public byte[] dump(SortedMap<Long, byte[]> entries) {
+            return dump(Utils.toLongArray(entries.keySet()), Utils.toBytesArray(entries.values()));
         }
 
         public byte[] dump(long[] keys, byte[][] values) {
@@ -634,58 +668,72 @@ public class HAMT {
             return Double.longBitsToDouble(bytesToLong(array));
         }
 
-        public static byte[] toByteArray(List<Byte> values) {
+        public static byte[] toByteArray(Collection<Byte> values) {
             byte[] array = new byte[values.size()];
-            for (int i = 0; i < array.length; i++) {
-                array[i] = values.get(i);
+            int i = 0;
+            for (byte v : values) {
+                array[i] = v;
+                i++;
             }
             return array;
         }
 
-        public static byte[][] toBytesArray(List<byte[]> values) {
+        public static byte[][] toBytesArray(Collection<byte[]> values) {
             byte[][] array = new byte[values.size()][];
-            for (int i = 0; i < array.length; i++) {
-                array[i] = values.get(i);
+            int i = 0;
+            for (byte[] v : values) {
+                array[i] = v;
+                i++;
             }
             return array;
         }
 
-        public static short[] toShortArray(List<Short> values) {
+        public static short[] toShortArray(Collection<Short> values) {
             short[] array = new short[values.size()];
-            for (int i = 0; i < array.length; i++) {
-                array[i] = values.get(i);
+            int i = 0;
+            for (short v : values) {
+                array[i] = v;
+                i++;
             }
             return array;
         }
 
-        public static int[] toIntArray(List<Integer> values) {
+        public static int[] toIntArray(Collection<Integer> values) {
             int[] array = new int[values.size()];
-            for (int i = 0; i < array.length; i++) {
-                array[i] = values.get(i);
+            int i = 0;
+            for (int v : values) {
+                array[i] = v;
+                i++;
             }
             return array;
         }
 
-        public static long[] toLongArray(List<Long> values) {
+        public static long[] toLongArray(Collection<Long> values) {
             long[] array = new long[values.size()];
-            for (int i = 0; i < array.length; i++) {
-                array[i] = values.get(i);
+            int i = 0;
+            for (long v : values) {
+                array[i] = v;
+                i++;
             }
             return array;
         }
 
-        public static float[] toFloatArray(List<Float> values) {
+        public static float[] toFloatArray(Collection<Float> values) {
             float[] array = new float[values.size()];
-            for (int i = 0; i < array.length; i++) {
-                array[i] = values.get(i);
+            int i = 0;
+            for (float v : values) {
+                array[i] = v;
+                i++;
             }
             return array;
         }
 
-        public static double[] toDoubleArray(List<Double> values) {
+        public static double[] toDoubleArray(Collection<Double> values) {
             double[] array = new double[values.size()];
-            for (int i = 0; i < array.length; i++) {
-                array[i] = values.get(i);
+            int i = 0;
+            for (double v : values) {
+                array[i] = v;
+                i++;
             }
             return array;
         }
