@@ -20,69 +20,45 @@ import java.util.SortedMap;
  *
  *  Header:
  *
- *  |3b-|b|2b|2b|3b-|-5b--|
- *    |  |  |  |  |   |
- *    |  |  |  |  |   Number of levels (n)
- *    |  |  |  |  |
- *    |  |  |  |  Bitmask size in bytes (2^n)
- *    |  |  |  |
- *    |  |  |  Pointer size in bytes (n+1)
- *    |  |  |
- *    |  |  Value size (2^n)
- *    |  Variable value size flag (not implemented yet)
- *    |
- *     Reserved
+ *  |3b-|-5b--|b|2b|2b|3b-|
+ *   |    |    | |  |  |
+ *   |    |    | |  |  Key size (n+1)
+ *   |    |    | |  |
+ *   |    |    | |  Pointer size in bytes (n+1)
+ *   |    |    | |
+ *   |    |    | Value size (2^n)
+ *   |    |    Variable value size flag (not implemented yet)
+ *   |    |
+ *   |    Hash table size (2^n);
+ *   |    note table size 1 means there is not hash table but only one SortedSet
+ *   |
+ *   Reserved
  *
  *  Data:
  *
- *  [<Bitmask><LayerData>]
+ *  <HTable>[<SortedSet>]
+ *
+ *  Htable:
+ *
+ *  [<SortedSetPtr>]
+ *
+ *  SortedSet:
+ *
+ *  <Size>[<Key><Value>]
  */
 public class HAMT {
-    private static final int NUM_LEVELS_OFFSET = 0;
-    private static final int BITMASK_SIZE_OFFSET = 5;
-    private static final int PTR_SIZE_OFFSET = 8;
-    private static final int VALUE_SIZE_OFFSET = 10;
-    private static final int VARIABLE_VALUE_SIZE_OFFSET = 12;
-    private static final int LEVELS_MASK = 0b0001_1111;
-    private static final int BITMASK_SIZE_MASK = 0b0000_0111;
+    private static final int KEY_SIZE_OFFSET = 0;
+    private static final int PTR_SIZE_OFFSET = 3;
+    private static final int VALUE_SIZE_OFFSET = 5;
+    private static final int VARIABLE_VALUE_SIZE_OFFSET = 7;
+    private static final int HASH_TABLE_SIZE_OFFSET = 8;
+    private static final int KEY_SIZE_MASK = 0b0000_0111;
     private static final int PTR_SIZE_MASK = 0b0000_0011;
     private static final int VALUE_SIZE_MASK = 0b0000_0011;
+    private static final int HASH_TABLE_SIZE_MASK = 0b0001_1111;
 
-    public static enum BitmaskSize {
-        BYTE(1), SHORT(2), INT(4), LONG(8);
-
-        private static final Map<Integer,BitmaskSize> sizesMap = new HashMap<>();
-        static {
-            for (BitmaskSize bitmaskSize : values()) {
-                sizesMap.put(bitmaskSize.size, bitmaskSize);
-            }
-        }
-
-        public final int size;
-        public final int shiftBits;
-        public final int shiftMask;
-
-        BitmaskSize(int size) {
-            this.size = size;
-            this.shiftBits = 31 - Integer.numberOfLeadingZeros(this.size << 3);
-            this.shiftMask = (1 << this.shiftBits) - 1;
-        }
-
-        public int encode() {
-            return this.shiftBits - 3;
-        }
-
-        public static BitmaskSize get(int size) {
-            return sizesMap.get(size);
-        }
-
-        public static BitmaskSize decode(int value) {
-            return BitmaskSize.get(1 << value);
-        }
-    }
-    
     public static enum ValueSize {
-        BYTE(1), SHORT(2), INT(4), LONG(8), VAR(-1);
+        BYTE(1), SHORT(2), INT(4), LONG(8);//, VAR(-1);
 
         private static final Map<Integer,ValueSize> sizesMap = new HashMap<>();
         static {
@@ -113,12 +89,18 @@ public class HAMT {
     }
     
     public static class Writer {
-        private final BitmaskSize bitmaskSize;
+        private final int fillingRatio;
         private final ValueSize valueSize;
 
-        public Writer(BitmaskSize bitmaskSize, ValueSize valueSize) {
-            this.bitmaskSize = bitmaskSize;
+        public final int DEFAULT_FILLING_RATIO = 10;
+
+        public Writer(ValueSize valueSize) {
+            this(valueSize, DEFAULT_FILLING_RATIO);
+        }
+
+        public Writer(ValueSize valueSize, int fillingRatio) {
             this.valueSize = valueSize;
+            this.fillingRation = fillingRatio
         }
 
         private Writer(int bitmaskSize, int valueSize) {
@@ -129,45 +111,36 @@ public class HAMT {
             return valueSize;
         }
 
-        int getLevels(long maxKey) {
-            int levels = 1;
-            long key = maxKey >>> this.bitmaskSize.shiftBits;
-            while (key != 0) {
-                levels++;
-                key = key >>> this.bitmaskSize.shiftBits;
-            }
-            return levels;
+        private int getKeySize(long maxKey) {
+            int highestSetBit = Long.numberOfLeadingZeros(maxKey) + 1;
+            return highestSetBit / 8 * 8 + (highestSetBit % 8 == 0 ? 0 : 8);
         }
 
-        int getPtrSize(List<LayerData> layers) {
-            int ptrSize = 0;
-            for (int ps = 0; ps <= 3; ps++) {
-                ptrSize = ps + 1;
-                int maxSize = 1 << (8 * ptrSize);
-                int size = 0;
-                for (LayerData l : layers) {
-                    size += l.size(ptrSize, this.valueSize.size);
-                    if (size > maxSize) {
-                        break;
-                    }
-                }
-                if (size > maxSize) {
-                    continue;
-                } else {
-                    break;
-                }
-            }
-            return ptrSize;
+        private int getDataSize(int hashTableSize, int ptrSize, int keySize, int valueSize, int numValues) {
+            return hashTableSize * ptrSize + (keySize + valueSize) * numValues;
         }
 
-        short getHeader(int numLevels, int ptrSize) {
+        private int getPtrSize(int hashTableSize, int keySize, int valueSize, int numValues) {
+            for (int ptrSize = 1; ptrSize < 4; ptrSize++) {
+                if (getDataSize(hashTableSize, ptrSize, keySize, valueSize, numValues) <= (1 << ptrSize * 8)) {
+                    return ptrSize;
+                }
+            }
+            return 4;
+        }
+
+        private int getHashTableSize(int numValues) {
+            return (numValues / fillingRatio) / 8 * 8;
+        }
+
+        private short getHeader(int keySize, int ptrSize, ValueSize valueSize, int hashTableSize) {
             assert 1 <= ptrSize && ptrSize <= 4;
 
             int header = 0;
-            header |= numLevels << NUM_LEVELS_OFFSET;
-            header |= this.bitmaskSize.encode() << BITMASK_SIZE_OFFSET;
+            header |= (keySize - 1) << KEY_SIZE_OFFSET;
             header |= (ptrSize - 1) << PTR_SIZE_OFFSET;
             header |= this.valueSize.encode() << VALUE_SIZE_OFFSET;
+            header |= hashTableSize << HASH_TABLE_SIZE_OFFSET;
             return (short) header;
         }
 
@@ -265,112 +238,92 @@ public class HAMT {
             }
 
             long maxKey = keys[keys.length - 1];
-            int numLevels = getLevels(maxKey);
-            List<LayerData> layers = new ArrayList<>();
-            layers.add(new LayerData(this.bitmaskSize.size));
-            Map<Long,LayerData> layersMap = new HashMap<>();
-            for (long key : keys) {
-                layersMap.put(key, layers.get(0));
-            }
-            for (int l = numLevels; l > 0; l--) {
-                LayerData prevSubLayer = null;
-                int i = 0;
-                for (long key : keys) {
-                    int k = (int) (key >>> ((l - 1) * this.bitmaskSize.shiftBits) & this.bitmaskSize.shiftMask);
-                    LayerData layer = layersMap.get(key);
-                    if (l == 1) {
-                        layer.addValue(values[i]);
-                    } else {
-                        LayerData subLayer = layer.newLayer(k);
-                        if (subLayer != prevSubLayer) {
-                            layers.add(subLayer);
-                        }
-                        prevSubLayer = subLayer;
-                        layersMap.put(key, subLayer);
-                    }
-                    layer.setBit(k);
-                    i++;
-                }
-            }
-            int ptrSize = getPtrSize(layers);
+            int keySize = getKeySize(maxKey);
+            int hashTableSize = getHashTableSize(keys.length);
+            int ptrSize = getPtrSize(hashTableSize, keySize, this.valueSize.size(), keys.length);
 
-            int bufferSize = 2;
-            for (LayerData layer : layers) {
-                int layerSize = layer.size(ptrSize, valueSize.size);
-                layer.setOffset(bufferSize - 2);
-                bufferSize += layerSize;
+            HTable htable = new HTable(hashTableSize, ptrSize, keySize);
+            for (int i = 0; i < keys.length; i++) {
+                long key = keys[i];
+                byte[] value = values[i];
+                htable.put(key, value);
             }
 
-            ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
+            ByteBuffer buffer = ByteBuffer.allocate(2 + getDataSize(hashTableSize, ptrSize, keySize, this.valueSize.size(), keys.length));
             buffer.order(ByteOrder.LITTLE_ENDIAN);
             buffer.putShort(getHeader(numLevels, ptrSize));
-            for (LayerData layer : layers) {
-                layer.dump(buffer, ptrSize);
-            }
+            buffer.put(htable.dump());
             return buffer.array();
         }
 
-        class LayerData {
-            public byte[] bitmask;
-            public int offset;
-            public List<LayerData> layers = new ArrayList<>();
-            public List<byte[]> values = new ArrayList<>();
+        class HTable {
+            private final int ptrSize;
+            private final int keySize;
+            private final SortedLongs[] table;
 
-            LayerData(int bitmaskSize) {
-                this.bitmask = new byte[bitmaskSize];
-            }
-        
-            void setBit(int k) {
-                int n = k >>> 3;
-                int b = k & 0b0000_0111;
-                this.bitmask[n] = (byte) (this.bitmask[n] | (1 << b));
-            }
-
-            LayerData newLayer(int k) {
-                int n = k >>> 3;
-                int b = k & 0b0000_0111;
-                if ((this.bitmask[n] & (1 << b)) != 0) {
-                    return this.layers.get(this.layers.size() - 1);
-                }
-                else {
-                    LayerData l = new LayerData(this.bitmask.length);
-                    this.layers.add(l);
-                    return l;
+            public HTable(int size, int ptrSize, int keySize) {
+                this.table = new SortedSet[size];
+                for (int i = 0; i < size; i++) {
+                    this.table[i] = new SortedSet();
                 }
             }
 
-            void addValue(byte[] v) {
-                this.values.add(v);
+            private void put(long key, byte[] value) {
+                this.table[key % size].add(key, value);
             }
 
-            void setOffset(int o) {
-                this.offset = o;
-            }
-
-            int size(int ptrSize, int valueSize) {
-                return bitmask.length + layers.size() * ptrSize + values.size() * valueSize;
-            }
-        
-            void dump(ByteBuffer buffer, int ptrSize) {
-                buffer.put(this.bitmask);
-                if (!this.layers.isEmpty()) {
-                    for (LayerData l : this.layers) {
-                        buffer.put(POINTER_DECODERS[ptrSize - 1].encode(l.offset));
-                    }
-                } else {
-                    for (byte[] v : this.values) {
-                        buffer.put(v);
-                    }
+            private void dump(ByteBuffer buffer) {
+                ByteBuffer tableBuffer = buffer.slice();
+                int kvListOffset = table.length * ptrSize;
+                buffer.position(kvListOffset);
+                ByteBuffer kvListBuffer = buffer.slice();
+                for (SortedLongs kvList : table) {
+                    tableBuffer.put(kvListBuffer.position() + kvListOffset);
+                    kvList.dump(kvListBuffer);
                 }
+            }
+        }
+
+        class SortedLongs {
+            private final List<KeyValue> kv = new ArrayList<>();
+
+            private void add(long key, byte[] value) {
+                this.kv.add(key)
+            }
+
+            private List<KeyValue> getKV() {
+                return kv;
+            }
+
+            private void dump(ByteBuffer buffer) {
+                buffer.put((byte) kv.size());
+                for (KeyValue kv : kvList) {
+                    kv.dump(buffer);
+                }
+            }
+        }
+
+        Class KeyValue {
+            public final long key;
+            public final byte[] value;
+
+            public KeyValue(long key, byte[] value) {
+                this.key = key;
+                this.value = value;
+            }
+
+            private void dump(ByteBuffer buffer) {
+                buffer.put(keyToBytes(key, keySize));
+                buffer.put(value);
             }
         }
     }
 
     public static class Reader {
-        private final int numLevels;
-        private final BitmaskSize bitmaskSize;
+        private final int keySize;
         private final int ptrSize;
         private final ValueSize valueSize;
+        private final int hashTableSize;
         private final ByteBuffer buffer;
 
         public static final int NOT_FOUND_OFFSET = -1;
@@ -378,61 +331,20 @@ public class HAMT {
         public Reader(byte[] data) {
             ByteBuffer buffer = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN);
             short header = buffer.getShort();
-            this.numLevels = ((header >>> NUM_LEVELS_OFFSET) & LEVELS_MASK);
-            this.bitmaskSize = BitmaskSize.decode((header >>> BITMASK_SIZE_OFFSET) & BITMASK_SIZE_MASK);
+            this.keySize = ((header >>> KEY_SIZE_OFFSET) & KEY_SIZE_MASK) + 1;
             this.ptrSize = ((header >>> PTR_SIZE_OFFSET) & PTR_SIZE_MASK) + 1;
             this.valueSize = ValueSize.decode((header >>> VALUE_SIZE_OFFSET) & VALUE_SIZE_MASK);
+            this.hashTableSize = ((header >>> HASH_TABLE_SIZE_OFFSET) & HASH_TABLE_SIZE__MASK) + 1;
             this.buffer = buffer.slice();
         }
 
-        public int numLevels() {
-            return numLevels;
-        }
-
-        public BitmaskSize bitmaskSize() {
-            return bitmaskSize;
-        }
-
-        public int ptrSize() {
-            return ptrSize;
-        }
-
-        public ValueSize valueSize() {
-            return valueSize;
-        }
-
         public int getValueOffset(long key) {
-            this.buffer.position(0);
+            int ptrOffset = (key % hashTableSize) * ptrSize;
+            this.buffer.position(ptrOffset);
+            byte[] kvListPtrBuf = new byte[ptrSize];
+            this.buffer.get(kvListPtrBuf);
+            int kvListPtr = bytesToPtr(kvListPtrBuf);
 
-            if (
-                this.numLevels * this.bitmaskSize.shiftBits < 64
-                && key >>> (this.numLevels * this.bitmaskSize.shiftBits) > 0
-            ) {
-                return NOT_FOUND_OFFSET;
-            }
-
-            int layerOffset = 0;
-            int ptrOffset = 0;
-            byte[] bitmask = new byte[this.bitmaskSize.size];
-            byte[] ptrBytes = new byte[this.ptrSize];
-            PointerDecoder ptrDecoder = POINTER_DECODERS[this.ptrSize - 1];
-            for (int level = numLevels - 1; level >= 0; level--) {
-                long k = key >>> (level * this.bitmaskSize.shiftBits) & this.bitmaskSize.shiftMask;
-                int nByte = (int) (k >>> 3);
-                int nBit = (int) (k & 0b0000_0111);
-                this.buffer.position(layerOffset);
-                this.buffer.get(bitmask);
-                if ((bitmask[nByte] & (1 << nBit)) == 0) {
-                    return NOT_FOUND_OFFSET;
-                }
-                ptrOffset = BIT_COUNTERS[nByte].count(bitmask, nByte, nBit);
-                if (level != 0) {
-                    this.buffer.position(layerOffset + bitmask.length + ptrOffset * this.ptrSize);
-                    this.buffer.get(ptrBytes);
-                    layerOffset = ptrDecoder.decode(ptrBytes);
-                }
-            }
-            return layerOffset + bitmask.length + ptrOffset * this.valueSize.size;
         }
 
         public boolean exists(long key) {
@@ -548,57 +460,57 @@ public class HAMT {
 
     }
 
-    private static final PointerDecoder[] POINTER_DECODERS = new PointerDecoder[] {
-        new PointerDecoder() {
+    private static final PointerCodec[] POINTER_CODECS = new PointerCodec[] {
+        new PointerCodec() {
             @Override
-            public byte[] encode(int ptr) {
+            public byte[] dump(int ptr) {
                 return new byte[]{ (byte) (ptr & 0xff) };
             }
 
             @Override
-            public int decode(byte[] array) {
+            public int load(byte[] array) {
                 return array[0] & 0xff;
             }
         },
-        new PointerDecoder() {
+        new PointerCodec() {
             @Override
-            public byte[] encode(int ptr) {
+            public byte[] dump(int ptr) {
                 return new byte[]{ (byte) (ptr & 0xff),
                                    (byte) ((ptr >>> 8) & 0xff) };
             }
 
             @Override
-            public int decode(byte[] array) {
+            public int load(byte[] array) {
                 return (array[0] & 0xff) | ((array[1] & 0xff) << 8);
             }
         },
-        new PointerDecoder() {
+        new PointerCodec() {
             @Override
-            public byte[] encode(int ptr) {
+            public byte[] dump(int ptr) {
                 return new byte[]{ (byte) (ptr & 0xff),
                                    (byte) ((ptr >>> 8) & 0xff),
                                    (byte) ((ptr >>> 16) & 0xff) };
             }
 
             @Override
-            public int decode(byte[] array) {
+            public int load(byte[] array) {
                 return (array[0] & 0xff) | ((array[1] & 0xff) << 8) | ((array[2] & 0xff) << 16);
             }
         },
-        new PointerDecoder() {
+        new PointerCodec() {
             @Override
-            public byte[] encode(int ptr) {
+            public byte[] dump(int ptr) {
                 return Utils.intToBytes(ptr);
             }
 
             @Override
-            public int decode(byte[] array) {
+            public int load(byte[] array) {
                 return Utils.bytesToInt(array);
             }
         }
     };
         
-    interface PointerDecoder {
+    interface PointerCodec {
         byte[] encode(int ptr);
             
         int decode(byte[] array);
