@@ -1,11 +1,11 @@
-package hamt
+package net.uaprom.htable
 
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import spock.lang.Specification
 
 
-class HAMTSpec extends Specification {
+class TrieHashTableSpec extends Specification {
     void checkGet(reader, keys, values, range, defaultValue) {
         def map = [keys, values].transpose().collectEntries { it }
         for (k in range) {
@@ -36,9 +36,9 @@ class HAMTSpec extends Specification {
         return ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN).putShort(v).array()
     }
 
-    def "test new HAMT.Writer(1, 4).getLevels"() {
+    def "test new TrieHashTable.Writer(1, 4).getLevels"() {
         given:
-        def hamtWriter = new HAMT.Writer(1, 4)
+        def hamtWriter = new TrieHashTable.Writer(1, 4)
 
         expect:
         hamtWriter.getLevels(maxKey) == levels
@@ -70,9 +70,9 @@ class HAMTSpec extends Specification {
         1073741824 | 11
     }
 
-    def "test new HAMT.Writer(2, 4).getLevels"() {
+    def "test new TrieHashTable.Writer(2, 4).getLevels"() {
         given:
-        def hamtWriter = new HAMT.Writer(2, 4)
+        def hamtWriter = new TrieHashTable.Writer(2, 4)
 
         expect:
         hamtWriter.getLevels(maxKey) == levels
@@ -97,9 +97,9 @@ class HAMTSpec extends Specification {
         268435456 | 8
     }
 
-    def "test new HAMT.Writer(4, 4).getLevels"() {
+    def "test new TrieHashTable.Writer(4, 4).getLevels"() {
         given:
-        def hamtWriter = new HAMT.Writer(4, 4)
+        def hamtWriter = new TrieHashTable.Writer(4, 4)
 
         expect:
         hamtWriter.getLevels(maxKey) == levels
@@ -123,9 +123,9 @@ class HAMTSpec extends Specification {
         1073741824 | 7
     }
 
-    def "test new HAMT.Writer(8, 4).getLevels"() {
+    def "test new TrieHashTable.Writer(8, 4).getLevels"() {
         given:
-        def hamtWriter = new HAMT.Writer(8, 4)
+        def hamtWriter = new TrieHashTable.Writer(8, 4)
 
         expect:
         hamtWriter.getLevels(maxKey) == levels
@@ -147,9 +147,9 @@ class HAMTSpec extends Specification {
         1073741824 | 6
     }
 
-    def "test new HAMT.Writer(2, 4).getHeader"() {
+    def "test new TrieHashTable.Writer(2, 4).getHeader"() {
         given:
-        def hamtWriter = new HAMT.Writer(2, 4)
+        def hamtWriter = new TrieHashTable.Writer(2, 4)
 
         expect:
         Integer.toBinaryString((int)hamtWriter.getHeader(levels, ptrSize)) == Integer.toBinaryString(header)
@@ -166,9 +166,9 @@ class HAMTSpec extends Specification {
         31     | 1       || 0b000_0_10_00_001_11111
     }
 
-    def "test new HAMT.Writer(1, 1).dump"() {
+    def "test new TrieHashTable.Writer(1, 1).dump"() {
         given:
-        def hamtWriter = new HAMT.Writer(1, 1)
+        def hamtWriter = new TrieHashTable.Writer(1, 1)
 
         expect:
         hamtWriter.dump(keys, values).collect { it & 0xff } == bytes
@@ -182,9 +182,9 @@ class HAMTSpec extends Specification {
         ]
     }
 
-    def "test new HAMT.Writer(1, 4).dump"() {
+    def "test new TrieHashTable.Writer(1, 4).dump"() {
         given:
-        def hamtWriter = new HAMT.Writer(1, 4)
+        def hamtWriter = new TrieHashTable.Writer(1, 4)
 
         expect:
         hamtWriter.dump(keys, values).collect { it & 0xff } == bytes
@@ -230,9 +230,9 @@ class HAMTSpec extends Specification {
         ]
     }
 
-    def "test new HAMT.Writer(2, 4).dump"() {
+    def "test new TrieHashTable.Writer(2, 4).dump"() {
         given:
-        def hamtWriter = new HAMT.Writer(2, 4)
+        def hamtWriter = new TrieHashTable.Writer(2, 4)
 
         expect:
         hamtWriter.dump(keys, values).collect { it & 0xff } == bytes
@@ -263,9 +263,9 @@ class HAMTSpec extends Specification {
         ]
     }
 
-    def "test new HAMT.Writer(4, 1).dump"() {
+    def "test new TrieHashTable.Writer(4, 1).dump"() {
         given:
-        def hamtWriter = new HAMT.Writer(4, 1)
+        def hamtWriter = new TrieHashTable.Writer(4, 1)
 
         expect:
         hamtWriter.dump(keys, values).collect { it & 0xff } == bytes
@@ -285,9 +285,9 @@ class HAMTSpec extends Specification {
         ]
     }
 
-    def "test new HAMT.Writer(8, 1).dump"() {
+    def "test new TrieHashTable.Writer(8, 1).dump"() {
         given:
-        def hamtWriter = new HAMT.Writer(8, 1)
+        def hamtWriter = new TrieHashTable.Writer(8, 1)
 
         expect:
         hamtWriter.dump(keys, values).collect { it & 0xff } == bytes
@@ -307,12 +307,12 @@ class HAMTSpec extends Specification {
         ]
     }
 
-    def "test new HAMT.Reader().exists"() {
+    def "test new TrieHashTable.Reader().exists"() {
         given:
-        def hamtWriter = new HAMT.Writer(2, 4)
+        def hamtWriter = new TrieHashTable.Writer(2, 4)
 
         when:
-        def reader = new HAMT.Reader(hamtWriter.dump(keys, values))
+        def reader = new TrieHashTable.Reader(hamtWriter.dump(keys, values))
         then:
         checkExists(reader, keys, values, 0L..100L)
 
@@ -325,12 +325,12 @@ class HAMTSpec extends Specification {
         ]
     }
 
-    def "test new HAMT.Reader().get [bitmaskSize: 1, valueSize: 1]"() {
+    def "test new TrieHashTable.Reader().get [bitmaskSize: 1, valueSize: 1]"() {
         given:
-        def hamtWriter = new HAMT.Writer(1, 1)
+        def hamtWriter = new TrieHashTable.Writer(1, 1)
 
         when:
-        def reader = new HAMT.Reader(hamtWriter.dump(keys, values))
+        def reader = new TrieHashTable.Reader(hamtWriter.dump(keys, values))
         then:
         checkGet(reader, keys, values, 0L..100L, defaultValue)
 
@@ -345,12 +345,12 @@ class HAMTSpec extends Specification {
         [0xff] as byte[]
     }
 
-    def "test new HAMT.Reader().get [bitmaskSize: 1, valueSize: 4]"() {
+    def "test new TrieHashTable.Reader().get [bitmaskSize: 1, valueSize: 4]"() {
         given:
-        def hamtWriter = new HAMT.Writer(1, 4)
+        def hamtWriter = new TrieHashTable.Writer(1, 4)
 
         when:
-        def reader = new HAMT.Reader(hamtWriter.dump(keys, values))
+        def reader = new TrieHashTable.Reader(hamtWriter.dump(keys, values))
         then:
         checkGet(reader, keys, values, 0L..100L, defaultValue)
 
@@ -365,12 +365,12 @@ class HAMTSpec extends Specification {
         [0xff, 0xff, 0xff, 0xff] as byte[]
     }
 
-    def "test new HAMT.Reader().get [bitmaskSize: 2, valueSize: 4]"() {
+    def "test new TrieHashTable.Reader().get [bitmaskSize: 2, valueSize: 4]"() {
         given:
-        def hamtWriter = new HAMT.Writer(2, 4)
+        def hamtWriter = new TrieHashTable.Writer(2, 4)
 
         when:
-        def reader = new HAMT.Reader(hamtWriter.dump(keys, values))
+        def reader = new TrieHashTable.Reader(hamtWriter.dump(keys, values))
         then:
         checkGet(reader, keys, values, 0L..100L, defaultValue)
 
@@ -385,14 +385,14 @@ class HAMTSpec extends Specification {
         [0xff, 0xff, 0xff, 0xff] as byte[]
     }
 
-    def "test new HAMT.Reader().get [bitmaskSize: 2, valueSize: 4] with different ptrSize"() {
+    def "test new TrieHashTable.Reader().get [bitmaskSize: 2, valueSize: 4] with different ptrSize"() {
         given:
-        def hamtWriter = new HAMT.Writer(2, 4)
+        def hamtWriter = new TrieHashTable.Writer(2, 4)
 
         when:
         def keys = keyRange.step(keyStep).collect { it }
         def values = keyRange.step(keyStep).collect { intToBytes((int) it * 2) }
-        def reader = new HAMT.Reader(hamtWriter.dump(keys, values))
+        def reader = new TrieHashTable.Reader(hamtWriter.dump(keys, values))
         then:
         checkGet(reader, keys, values, keyRange, defaultValue)
 
