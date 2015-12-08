@@ -169,15 +169,8 @@ public class ChainHashTable extends HashTable {
             }
 
             public byte[] dump() {
-                int bufferSize = 0;
-                int ptrSize = 1;
-                for (; ptrSize <= 4; ptrSize++) {
-                    bufferSize = calcBufferSize(ptrSize);
-                    if (bufferSize <= (1 << ptrSize * 8)) {
-                        break;
-                    }
-                }
-                this.ptrSize = ptrSize;
+                ptrSize = calcPtrSize();
+                int bufferSize = calcBufferSize(ptrSize);
                 LongCodec ptrCodec = HashTable.LONG_CODECS[ptrSize - 1];
                 LongCodec keyCodec = HashTable.LONG_CODECS[keySize - 1];
 
@@ -201,6 +194,27 @@ public class ChainHashTable extends HashTable {
                     kvList.dump(buffer, keyCodec);
                 }
                 return buffer.array();
+            }
+
+            private int calcPtrSize() {
+                int ptrSize = 1;
+                if (table.length == 0) {
+                    return ptrSize;
+                }
+                int lastKvListSize = 0;
+                for (int kvListIx = table.length - 1; kvListIx >= 0; kvListIx--){
+                    lastKvListSize = table[kvListIx].calcBufferSize(keySize, valueSize);
+                    if (lastKvListSize != 0) {
+                        break;
+                    }
+                }
+                for (; ptrSize <= 4; ptrSize++) {
+                    int bufferSize = calcBufferSize(ptrSize);
+                    if (HEADER_SIZE + bufferSize - lastKvListSize <= (1 << ptrSize * 8)) {
+                        break;
+                    }
+                }
+                return ptrSize;
             }
 
             private int calcBufferSize(int ptrSize) {
