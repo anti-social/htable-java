@@ -179,7 +179,7 @@ public class TrieHashTable extends HashTable {
             int bufferSize = HEADER_SIZE;
             for (LayerData layer : layers) {
                 int layerSize = layer.size(ptrSize, valueSize.size);
-                layer.setOffset(bufferSize - HEADER_SIZE);
+                layer.setOffset(bufferSize);
                 bufferSize += layerSize;
             }
 
@@ -261,13 +261,13 @@ public class TrieHashTable extends HashTable {
 
         public Reader(byte[] data, int offset, int length) {
             super(data, offset, length);
-            ByteBuffer buffer = ByteBuffer.wrap(data, offset, length).order(ByteOrder.LITTLE_ENDIAN);
-            short header = buffer.getShort();
+            this.buffer = ByteBuffer.wrap(data, offset, length).slice();
+            this.buffer.order(ByteOrder.LITTLE_ENDIAN);
+            short header = this.buffer.getShort();
             this.numLevels = ((header >>> NUM_LEVELS_OFFSET) & LEVELS_MASK);
             this.bitmaskSize = BitmaskSize.decode((header >>> BITMASK_SIZE_OFFSET) & BITMASK_SIZE_MASK);
             this.ptrSize = ((header >>> PTR_SIZE_OFFSET) & PTR_SIZE_MASK) + 1;
             this.valueSize = ValueSize.decode((header >>> VALUE_SIZE_OFFSET) & VALUE_SIZE_MASK);
-            this.buffer = buffer.slice();
         }
 
         public int numLevels() {
@@ -298,8 +298,8 @@ public class TrieHashTable extends HashTable {
                 return NOT_FOUND_OFFSET;
             }
 
-            int layerOffset = 0;
-            int ptrOffset = 0;
+            int layerOffset = HEADER_SIZE;
+            int ptrIx = 0;
             byte[] bitmask = new byte[this.bitmaskSize.size];
             byte[] ptrBytes = new byte[this.ptrSize];
             LongCodec ptrCodec = LONG_CODECS[this.ptrSize - 1];
@@ -312,14 +312,14 @@ public class TrieHashTable extends HashTable {
                 if ((bitmask[nByte] & (1 << nBit)) == 0) {
                     return NOT_FOUND_OFFSET;
                 }
-                ptrOffset = BIT_COUNTERS[nByte].count(bitmask, nByte, nBit);
+                ptrIx = BIT_COUNTERS[nByte].count(bitmask, nByte, nBit);
                 if (level != 0) {
-                    this.buffer.position(layerOffset + bitmask.length + ptrOffset * this.ptrSize);
+                    this.buffer.position(layerOffset + bitmask.length + ptrIx * this.ptrSize);
                     this.buffer.get(ptrBytes);
                     layerOffset = (int) ptrCodec.load(ptrBytes);
                 }
             }
-            return offset + HEADER_SIZE + layerOffset + bitmask.length + ptrOffset * this.valueSize.size;
+            return offset + layerOffset + bitmask.length + ptrIx * this.valueSize.size;
         }
 
         private static final BitCounter DEFAULT_BIT_COUNTER = new BitCounter();
