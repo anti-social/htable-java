@@ -253,7 +253,6 @@ public class TrieHashTable extends HashTable {
         private final BitmaskSize bitmaskSize;
         private final int ptrSize;
         private final ValueSize valueSize;
-        private final ByteBuffer buffer;
 
         public Reader(byte[] data) {
             this(data, 0, data.length);
@@ -261,9 +260,7 @@ public class TrieHashTable extends HashTable {
 
         public Reader(byte[] data, int offset, int length) {
             super(data, offset, length);
-            this.buffer = ByteBuffer.wrap(data, offset, length).slice();
-            this.buffer.order(ByteOrder.LITTLE_ENDIAN);
-            short header = this.buffer.getShort();
+            short header = ByteUtils.bytesToShort(data, offset);
             this.numLevels = ((header >>> NUM_LEVELS_OFFSET) & LEVELS_MASK);
             this.bitmaskSize = BitmaskSize.decode((header >>> BITMASK_SIZE_OFFSET) & BITMASK_SIZE_MASK);
             this.ptrSize = ((header >>> PTR_SIZE_OFFSET) & PTR_SIZE_MASK) + 1;
@@ -289,8 +286,6 @@ public class TrieHashTable extends HashTable {
 
         @Override
         public final int getValueOffset(long key) {
-            this.buffer.position(0);
-
             if (
                 this.numLevels * this.bitmaskSize.shiftBits < 64
                 && key >>> (this.numLevels * this.bitmaskSize.shiftBits) > 0
@@ -307,16 +302,13 @@ public class TrieHashTable extends HashTable {
                 long k = key >>> (level * this.bitmaskSize.shiftBits) & this.bitmaskSize.shiftMask;
                 int nByte = (int) (k >>> 3);
                 int nBit = (int) (k & 0b0000_0111);
-                this.buffer.position(layerOffset);
-                this.buffer.get(bitmask);
-                if ((bitmask[nByte] & (1 << nBit)) == 0) {
+                if ((this.data[this.offset + layerOffset + nByte] & (1 << nBit)) == 0) {
                     return NOT_FOUND_OFFSET;
                 }
-                ptrIx = BIT_COUNTERS[nByte].count(bitmask, nByte, nBit);
+                ptrIx = BIT_COUNTERS[nByte].count(this.data, this.offset + layerOffset, nByte, nBit);
                 if (level != 0) {
-                    this.buffer.position(layerOffset + bitmask.length + ptrIx * this.ptrSize);
-                    this.buffer.get(ptrBytes);
-                    layerOffset = (int) ptrCodec.load(ptrBytes);
+                    int ptrOffset = offset + layerOffset + bitmask.length + ptrIx * this.ptrSize;
+                    layerOffset = (int) ptrCodec.load(this.data, ptrOffset);
                 }
             }
             return offset + layerOffset + bitmask.length + ptrIx * this.valueSize.size;
@@ -326,26 +318,35 @@ public class TrieHashTable extends HashTable {
         private static final BitCounter[] BIT_COUNTERS = new BitCounter[] {
             new BitCounter() {
                 @Override
-                int count(byte[] bytes, int nByte, int nBit) {
-                    return BIT_COUNTS[bytes[0] & BIT_COUNT_MASKS[nBit]];
+                int count(byte[] bytes, int offset, int nByte, int nBit) {
+                    return BIT_COUNTS[bytes[offset] & BIT_COUNT_MASKS[nBit]];
                 }
             },
             new BitCounter() {
                 @Override
-                int count(byte[] bytes, int nByte, int nBit) {
-                    return BIT_COUNTS[bytes[0] & 0xff] + BIT_COUNTS[bytes[1] & BIT_COUNT_MASKS[nBit]];
+                int count(byte[] bytes, int offset, int nByte, int nBit) {
+                    return
+                        BIT_COUNTS[bytes[offset] & 0xff] +
+                        BIT_COUNTS[bytes[offset + 1] & BIT_COUNT_MASKS[nBit]];
                 }
             },
             new BitCounter() {
                 @Override
-                int count(byte[] bytes, int nByte, int nBit) {
-                    return BIT_COUNTS[bytes[0] & 0xff] + BIT_COUNTS[bytes[1] & 0xff] + BIT_COUNTS[bytes[2] & BIT_COUNT_MASKS[nBit]];
+                int count(byte[] bytes, int offset, int nByte, int nBit) {
+                    return
+                        BIT_COUNTS[bytes[offset] & 0xff] +
+                        BIT_COUNTS[bytes[offset + 1] & 0xff] +
+                        BIT_COUNTS[bytes[offset + 2] & BIT_COUNT_MASKS[nBit]];
                 }
             },
             new BitCounter() {
                 @Override
-                int count(byte[] bytes, int nByte, int nBit) {
-                    return BIT_COUNTS[bytes[0] & 0xff] + BIT_COUNTS[bytes[1] & 0xff] + BIT_COUNTS[bytes[2] & 0xff] + BIT_COUNTS[bytes[3] & BIT_COUNT_MASKS[nBit]];
+                int count(byte[] bytes, int offset, int nByte, int nBit) {
+                    return
+                        BIT_COUNTS[bytes[offset] & 0xff] +
+                        BIT_COUNTS[bytes[offset + 1] & 0xff] +
+                        BIT_COUNTS[bytes[offset + 2] & 0xff] +
+                        BIT_COUNTS[bytes[offset + 3] & BIT_COUNT_MASKS[nBit]];
                 }
             },
             DEFAULT_BIT_COUNTER,
@@ -372,10 +373,10 @@ public class TrieHashTable extends HashTable {
                 }
             }
 
-            int count(byte[] bytes, int nByte, int nBit) {
-                int count = BIT_COUNTS[bytes[nByte] & BIT_COUNT_MASKS[nBit]];
+            int count(byte[] bytes, int offset, int nByte, int nBit) {
+                int count = BIT_COUNTS[bytes[offset + nByte] & BIT_COUNT_MASKS[nBit]];
                 for (int byteIx = nByte - 1; byteIx >= 0; byteIx--) {
-                    int b = bytes[byteIx] & 0xff;
+                    int b = bytes[offset + byteIx] & 0xff;
                     count += BIT_COUNTS[b];
                 }
                 return count;
