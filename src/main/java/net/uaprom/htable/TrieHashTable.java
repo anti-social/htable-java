@@ -85,13 +85,15 @@ public class TrieHashTable extends HashTable {
     public static final class Writer extends HashTable.Writer {
         private final BitmaskSize bitmaskSize;
 
-        public Writer(BitmaskSize bitmaskSize, ValueSize valueSize) {
-            super(valueSize);
-            this.bitmaskSize = bitmaskSize;
+        public static final BitmaskSize DEFAULT_BITMASK_SIZE = BitmaskSize.SHORT;
+
+        public Writer(ValueSize valueSize) {
+            this(valueSize, DEFAULT_BITMASK_SIZE);
         }
 
-        private Writer(int bitmaskSize, int valueSize) {
-            this(BitmaskSize.get(bitmaskSize), ValueSize.get(valueSize));
+        public Writer(ValueSize valueSize, BitmaskSize bitmaskSize) {
+            super(valueSize);
+            this.bitmaskSize = bitmaskSize;
         }
 
         private int getLevels(long maxKey) {
@@ -254,8 +256,12 @@ public class TrieHashTable extends HashTable {
         private final ByteBuffer buffer;
 
         public Reader(byte[] data) {
-            super(data);
-            ByteBuffer buffer = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN);
+            this(data, 0, data.length);
+        }
+
+        public Reader(byte[] data, int offset, int length) {
+            super(data, offset, length);
+            ByteBuffer buffer = ByteBuffer.wrap(data, offset, length).order(ByteOrder.LITTLE_ENDIAN);
             short header = buffer.getShort();
             this.numLevels = ((header >>> NUM_LEVELS_OFFSET) & LEVELS_MASK);
             this.bitmaskSize = BitmaskSize.decode((header >>> BITMASK_SIZE_OFFSET) & BITMASK_SIZE_MASK);
@@ -313,7 +319,7 @@ public class TrieHashTable extends HashTable {
                     layerOffset = (int) ptrCodec.load(ptrBytes);
                 }
             }
-            return HEADER_SIZE + layerOffset + bitmask.length + ptrOffset * this.valueSize.size;
+            return offset + HEADER_SIZE + layerOffset + bitmask.length + ptrOffset * this.valueSize.size;
         }
 
         private static final BitCounter DEFAULT_BIT_COUNTER = new BitCounter();

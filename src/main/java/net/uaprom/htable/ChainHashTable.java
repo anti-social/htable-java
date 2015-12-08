@@ -262,8 +262,12 @@ public class ChainHashTable extends HashTable {
         private final int entrySize;
 
         public Reader(byte[] data) {
-            super(data);
-            short header = ByteUtils.bytesToShort(data);
+            this(data, 0, data.length);
+        }
+
+        public Reader(byte[] data, int offset, int length) {
+            super(data, offset, length);
+            short header = ByteUtils.bytesToShort(data, offset);
             this.keySize = ((header >>> KEY_SIZE_OFFSET) & KEY_SIZE_MASK) + 1;
             this.keyCodec = HashTable.LONG_CODECS[keySize - 1];
             this.ptrSize = ((header >>> PTR_SIZE_OFFSET) & PTR_SIZE_MASK) + 1;
@@ -281,15 +285,15 @@ public class ChainHashTable extends HashTable {
         @Override
         public int getValueOffset(long key) {
             if (hashTableSize == 1) {
-                return binarySearch(HEADER_SIZE, data.length - HEADER_SIZE, key);
+                return binarySearch(HEADER_SIZE, this.length - HEADER_SIZE, key);
             } else {
                 int hashTableIx = (int) (key % hashTableSize);
-                int ptrOffset = hashTableIx * ptrSize + HEADER_SIZE;
+                int ptrOffset = this.offset + hashTableIx * this.ptrSize + HEADER_SIZE;
                 int kvListPtr = (int) ptrCodec.load(this.data, ptrOffset) + HEADER_SIZE;
                 if (kvListPtr == 0) {
                     return NOT_FOUND_OFFSET;
                 }
-                int kvListLength = getKvListSize(hashTableIx, kvListPtr);
+                int kvListLength = getKvListLength(hashTableIx, kvListPtr);
                 return binarySearch(kvListPtr, kvListLength, key);
             }
         }
@@ -297,9 +301,10 @@ public class ChainHashTable extends HashTable {
         private long getKey(int offset, int entryIx) {
             return keyCodec.load(this.data, offset + entryIx * this.entrySize);
         }
-        
-        private int binarySearch(int offset, int length, long key) {
-            int kvListSize = length / entrySize;
+
+        private int binarySearch(int kvListOffset, int kvListLength, long key) {
+            int offset = this.offset + kvListOffset;
+            int kvListSize = kvListLength / entrySize;
             int minEntryIx = 0, maxEntryIx = kvListSize - 1;
             while (minEntryIx <= maxEntryIx) {
                 int currentEntryIx = (maxEntryIx + minEntryIx) >>> 1;
@@ -315,17 +320,17 @@ public class ChainHashTable extends HashTable {
             return NOT_FOUND_OFFSET;
         }
 
-        private int getKvListSize(int hashTableIx, int kvListPtr) {
+        private int getKvListLength(int hashTableIx, int kvListPtr) {
             for (int i = hashTableIx + 1; i < hashTableSize; i++) {
-                int nextPtrOffset = i * ptrSize + 2;
-                int nextKvListPtr = (int) ptrCodec.load(this.data, nextPtrOffset) + 2;
+                int nextPtrOffset = this.offset + HEADER_SIZE + i * ptrSize;
+                int nextKvListPtr = (int) ptrCodec.load(this.data, nextPtrOffset) + HEADER_SIZE;
                 if (nextKvListPtr == 0) {
                     continue;
                 } else {
                     return nextKvListPtr - kvListPtr;
                 }
             }
-            return data.length - kvListPtr;
+            return this.length - kvListPtr;
         }
     }
 }

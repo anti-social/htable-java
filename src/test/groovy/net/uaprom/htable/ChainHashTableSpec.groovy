@@ -1,41 +1,7 @@
 package net.uaprom.htable
 
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import spock.lang.Specification
 
-
-class HashTableSpec extends Specification {
-    void checkGet(reader, keys, values, range, defaultValue) {
-        def map = [keys, values].transpose().collectEntries { it }
-        for (k in range) {
-            if (map.containsKey(k)) {
-                assert reader.get(k, defaultValue) == map[k]
-            } else {
-                assert reader.get(k, defaultValue) == defaultValue
-            }
-        }
-    }
-
-    void checkExists(reader, keys, values, range) {
-        def map = [keys, values].transpose().collectEntries { it }
-        for (k in range) {
-            if (map.containsKey(k)) {
-                assert reader.exists(k) == true
-            } else {
-                assert reader.exists(k) == false
-            }
-        }
-    }
-
-    byte[] intToBytes(int v) {
-        return ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(v).array()
-    }
-
-    byte[] shortToBytes(short v) {
-        return ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN).putShort(v).array()
-    }
-
+class HashTableSpec extends BaseSpecification {
     def "test ChainHashTable.Writer.getHashTableSize"() {
         when:
         def htableWriter = new ChainHashTable.Writer(HashTable.ValueSize.INT, fillingRatio, minHashTableSize)
@@ -157,6 +123,24 @@ class HashTableSpec extends Specification {
         ]
     }
 
+    def "test ChainHashTable.Reader().get [valueSize: 4] with data offset"() {
+        given:
+        def htableWriter = new ChainHashTable.Writer(HashTable.ValueSize.INT)
+
+        when:
+        def keysRange = keys.min()..keys.max()
+        def garbage = [0xff as byte] * 10 as byte[]
+        def data = htableWriter.dumpInts(keys, values)
+        def reader = new ChainHashTable.Reader([*garbage, *data] as byte[], garbage.length, data.length)
+        then:
+        assertReader_getInt(reader, keys, values, keysRange, defaultValue)
+
+        where:
+        keys | values | defaultValue
+        [1L] | [156] | -2
+        1L..20L | 1..20 | -2
+    }
+
     def "test ChainHashTable.Reader().get [valueSize: 4]"() {
         given:
         def htableWriter = new ChainHashTable.Writer(HashTable.ValueSize.INT)
@@ -166,7 +150,7 @@ class HashTableSpec extends Specification {
         def values = keyRange.step(keyStep).collect { intToBytes((int) it * 2) }
         def reader = new ChainHashTable.Reader(htableWriter.dump(keys, values))
         then:
-        checkGet(reader, keys, values, keyRange, defaultValue)
+        assertReader_get(reader, keys, values, keyRange, defaultValue)
 
         where:
         keyRange | keyStep | defaultValue

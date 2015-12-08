@@ -151,11 +151,15 @@ abstract public class HashTable {
 
     abstract public static class Reader {
         protected final byte[] data;
+        protected final int offset;
+        protected final int length;
         
         public static final int NOT_FOUND_OFFSET = -1;
 
-        public Reader(byte[] data) {
+        public Reader(byte[] data, int offset, int length) {
             this.data = data;
+            this.offset = offset;
+            this.length = length;
         }
 
         abstract public ValueSize valueSize();
@@ -167,9 +171,25 @@ abstract public class HashTable {
             return valueOffset > 0 ? true : false;
         }
 
+        public byte getByte(long key, byte defaultValue) {
+            int valueOffset = getValueOffset(key);
+            if (valueOffset == NOT_FOUND_OFFSET) {
+                return defaultValue;
+            }
+            return getByte(valueOffset);
+        }
+
         public byte getByte(int valueOffset) {
             assert this.valueSize() == ValueSize.BYTE;
             return this.data[valueOffset];
+        }
+
+        public short getShort(long key, short defaultValue) {
+            int valueOffset = getValueOffset(key);
+            if (valueOffset == NOT_FOUND_OFFSET) {
+                return defaultValue;
+            }
+            return getShort(valueOffset);
         }
 
         public short getShort(int valueOffset) {
@@ -177,9 +197,25 @@ abstract public class HashTable {
             return ByteUtils.bytesToShort(get(valueOffset));
         }
 
+        public int getInt(long key, int defaultValue) {
+            int valueOffset = getValueOffset(key);
+            if (valueOffset == NOT_FOUND_OFFSET) {
+                return defaultValue;
+            }
+            return getInt(valueOffset);
+        }
+
         public int getInt(int valueOffset) {
             assert this.valueSize() == ValueSize.INT;
             return ByteUtils.bytesToInt(get(valueOffset));
+        }
+
+        public long getLong(long key, long defaultValue) {
+            int valueOffset = getValueOffset(key);
+            if (valueOffset == NOT_FOUND_OFFSET) {
+                return defaultValue;
+            }
+            return getLong(valueOffset);
         }
 
         public long getLong(int valueOffset) {
@@ -187,9 +223,25 @@ abstract public class HashTable {
             return ByteUtils.bytesToLong(get(valueOffset));
         }
 
+        public float getFloat(long key, float defaultValue) {
+            int valueOffset = getValueOffset(key);
+            if (valueOffset == NOT_FOUND_OFFSET) {
+                return defaultValue;
+            }
+            return getFloat(valueOffset);
+        }
+
         public float getFloat(int valueOffset) {
             assert this.valueSize() == ValueSize.INT;
             return ByteUtils.bytesToFloat(get(valueOffset));
+        }
+
+        public double getDouble(long key, double defaultValue) {
+            int valueOffset = getValueOffset(key);
+            if (valueOffset == NOT_FOUND_OFFSET) {
+                return defaultValue;
+            }
+            return getDouble(valueOffset);
         }
 
         public double getDouble(int valueOffset) {
