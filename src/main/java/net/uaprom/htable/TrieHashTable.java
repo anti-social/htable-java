@@ -20,18 +20,18 @@ import java.util.SortedMap;
  *
  *  Header:
  *
- *  |3b-|b|2b|2b|3b-|-5b--|
- *    |  |  |  |  |   |
- *    |  |  |  |  |   Number of levels (n)
- *    |  |  |  |  |
- *    |  |  |  |  Bitmask size in bytes (2^n)
- *    |  |  |  |
- *    |  |  |  Pointer size in bytes (n+1)
- *    |  |  |
- *    |  |  Value size (2^n)
- *    |  Variable value size flag (not implemented yet)
+ *  |3b-|-5b--|2b|3b-|b|2b|
+ *    |   |    |  |   | |
+ *    |   |    |  |   | Value size (2^n)
+ *    |   |    |  |   Variable value size flag (not implemented yet)             
+ *    |   |    |  |
+ *    |   |    |  Bitmask size in bytes (2^n)
+ *    |   |    |
+ *    |   |    Pointer size in bytes (n+1)
+ *    |   |
+ *    |   Number of levels (n)
  *    |
- *     Reserved
+ *    Reserved
  *
  *  Data:
  *
@@ -39,12 +39,12 @@ import java.util.SortedMap;
  */
 public class TrieHashTable extends HashTable {
     private static final int HEADER_SIZE = 2;
-    private static final int NUM_LEVELS_OFFSET = 0;
-    private static final int BITMASK_SIZE_OFFSET = 5;
-    private static final int PTR_SIZE_OFFSET = 8;
-    private static final int VALUE_SIZE_OFFSET = 10;
-    private static final int VARIABLE_VALUE_SIZE_OFFSET = 12;
-    private static final int LEVELS_MASK = 0b0001_1111;
+    private static final int VALUE_SIZE_OFFSET = 0;
+    private static final int VARIABLE_VALUE_SIZE_OFFSET = 2;
+    private static final int BITMASK_SIZE_OFFSET = 3;
+    private static final int PTR_SIZE_OFFSET = 6;
+    private static final int NUM_LEVELS_OFFSET = 8;
+    private static final int NUM_LEVELS_MASK = 0b0001_1111;
     private static final int BITMASK_SIZE_MASK = 0b0000_0111;
     private static final int PTR_SIZE_MASK = 0b0000_0011;
     private static final int VALUE_SIZE_MASK = 0b0000_0011;
@@ -261,7 +261,7 @@ public class TrieHashTable extends HashTable {
         public Reader(byte[] data, int offset, int length) {
             super(data, offset, length);
             short header = ByteUtils.bytesToShort(data, offset);
-            this.numLevels = ((header >>> NUM_LEVELS_OFFSET) & LEVELS_MASK);
+            this.numLevels = ((header >>> NUM_LEVELS_OFFSET) & NUM_LEVELS_MASK);
             this.bitmaskSize = BitmaskSize.decode((header >>> BITMASK_SIZE_OFFSET) & BITMASK_SIZE_MASK);
             this.ptrSize = ((header >>> PTR_SIZE_OFFSET) & PTR_SIZE_MASK) + 1;
             this.valueSize = ValueSize.decode((header >>> VALUE_SIZE_OFFSET) & VALUE_SIZE_MASK);

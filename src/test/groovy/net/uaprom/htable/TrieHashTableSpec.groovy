@@ -122,14 +122,14 @@ class TrieHashTableSpec extends BaseSpecification {
 
         where:
         levels | ptrSize || header
-        1      | 1       || 0b000_0_10_00_001_00001
-        1      | 2       || 0b000_0_10_01_001_00001
-        1      | 3       || 0b000_0_10_10_001_00001
-        1      | 4       || 0b000_0_10_11_001_00001
-        2      | 1       || 0b000_0_10_00_001_00010
-        3      | 1       || 0b000_0_10_00_001_00011
-        4      | 1       || 0b000_0_10_00_001_00100
-        31     | 1       || 0b000_0_10_00_001_11111
+        1      | 1       || 0b000_00001_00_001_0_10
+        1      | 2       || 0b000_00001_01_001_0_10
+        1      | 3       || 0b000_00001_10_001_0_10
+        1      | 4       || 0b000_00001_11_001_0_10
+        2      | 1       || 0b000_00010_00_001_0_10
+        3      | 1       || 0b000_00011_00_001_0_10
+        4      | 1       || 0b000_00100_00_001_0_10
+        31     | 1       || 0b000_11111_00_001_0_10
     }
 
     def "test TrieHashTable.Writer.dump [valueSize: 1, bitmaskSize: 1]"() {
@@ -143,7 +143,7 @@ class TrieHashTableSpec extends BaseSpecification {
         keys | values | bytes
         // keys: 0b00_000_000
         [0L] | [[3] as byte[]] | [
-            *shortToBytes((short) 0b000_0_00_00_000_00001),
+            *shortToBytes((short) 0b000_00001_00_000_0_00),
             0b0000_0001, 3
         ]
     }
@@ -159,23 +159,23 @@ class TrieHashTableSpec extends BaseSpecification {
         keys | values | bytes
         // keys: 0b00_000_000
         [0L] | [[3, 0, 0, 0] as byte[]] | [
-            *shortToBytes((short) 0b000_0_10_00_000_00001),
+            *shortToBytes((short) 0b000_00001_00_000_0_10),
             0b0000_0001, 3, 0, 0, 0
         ]
         // keys: 0b00_000_111
         [7L] | [[3, 0, 0, 0] as byte[]] | [
-            *shortToBytes((short) 0b000_0_10_00_000_00001),
+            *shortToBytes((short) 0b000_00001_00_000_0_10),
             0b1000_0000, 3, 0, 0, 0,
         ]
         // keys: 0b00_001_000
         [8L] | [[3, 0, 0, 0] as byte[]] | [
-            *shortToBytes((short) 0b000_0_10_00_000_00010),
+            *shortToBytes((short) 0b000_00010_00_000_0_10),
             0b0000_0010, 4,
             0b0000_0001, 3, 0, 0, 0,
         ]
         // keys: 0b01_000_000
         [64L] | [[3, 0, 0, 0] as byte[]] | [
-            *shortToBytes((short) 0b000_0_10_00_000_00011),
+            *shortToBytes((short) 0b000_00011_00_000_0_10),
             0b0000_0010, 4,
             0b0000_0001, 6,
             0b0000_0001, 3, 0, 0, 0,
@@ -186,7 +186,7 @@ class TrieHashTableSpec extends BaseSpecification {
             [2, 0, 0, 0] as byte[],
             [3, 0, 0, 0] as byte[]
         ] | [
-             *shortToBytes((short) 0b000_0_10_00_000_00011),
+             *shortToBytes((short) 0b000_00011_00_000_0_10),
              0b0000_0101, 5, 8,       // (0, 13), 159
              0b0000_0011, 10, 15,      // 0, 13
              0b0000_1000, 20,         // 159
@@ -206,14 +206,14 @@ class TrieHashTableSpec extends BaseSpecification {
         where:
         keys | values | bytes
         [1L] | [[3, 0, 0, 0] as byte[]] | [
-            *shortToBytes((short) 0b000_0_10_00_001_00001),
+            *shortToBytes((short) 0b000_00001_00_001_0_10),
             0b0000_0010, 0b0000_0000, 3, 0, 0, 0
         ]
         [0L, 13L] | [
             [3, 0, 0, 0] as byte[],
             [1, 0, 0, 0] as byte[]
         ] | [
-            *shortToBytes((short) 0b000_0_10_00_001_00001),
+            *shortToBytes((short) 0b000_00001_00_001_0_10),
             0b0000_0001, 0b0010_0000, 3, 0, 0, 0, 1, 0, 0, 0
         ]
         // keys: 0b0000_0000, 0b0000_1101, 0b0001_1111
@@ -222,7 +222,7 @@ class TrieHashTableSpec extends BaseSpecification {
             [1, 0, 0, 0] as byte[],
             [2, 0, 0, 0] as byte[]
         ] | [
-            *shortToBytes((short) 0b000_0_10_00_001_00010),
+            *shortToBytes((short) 0b000_00010_00_001_0_10),
             0b0000_0011, 0b0000_0000, 6, 16,
             0b0000_0001, 0b0010_0000, 3, 0, 0, 0, 1, 0, 0, 0,
             0b0000_0000, 0b1000_0000, 2, 0, 0, 0
@@ -240,12 +240,12 @@ class TrieHashTableSpec extends BaseSpecification {
         keys | values | bytes
         // keys: 0b000_00000
         [0L] | [[3] as byte[]] | [
-            *shortToBytes((short) 0b000_0_00_00_010_00001),
+            *shortToBytes((short) 0b000_00001_00_010_0_00),
             0b0000_0001, 0b0000_0000, 0b0000_0000, 0b0000_0000, 3
         ]
         // keys: 0b001_00000
         [32L] | [[3] as byte[]] | [
-            *shortToBytes((short) 0b000_0_00_00_010_00010),
+            *shortToBytes((short) 0b000_00010_00_010_0_00),
             0b0000_0010, 0b0000_0000, 0b0000_0000, 0b0000_0000, 7,
             0b0000_0001, 0b0000_0000, 0b0000_0000, 0b0000_0000, 3
         ]
@@ -262,12 +262,12 @@ class TrieHashTableSpec extends BaseSpecification {
         keys | values | bytes
         // keys: 0b000_00000
         [0L] | [[3] as byte[]] | [
-            *shortToBytes((short) 0b000_0_00_00_011_00001),
+            *shortToBytes((short) 0b000_00001_00_011_0_00),
             0b0000_0001, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 3
         ]
         // keys: 0b001_00000
         [64L] | [[3] as byte[]] | [
-            *shortToBytes((short) 0b000_0_00_00_011_00010),
+            *shortToBytes((short) 0b000_00010_00_011_0_00),
             0b0000_0010, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 11,
             0b0000_0001, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 0b0000_0000, 3
         ]

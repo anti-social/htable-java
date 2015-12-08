@@ -20,14 +20,14 @@ import java.util.SortedMap;
  *
  *  Header:
  *
- *  |3b-|-5b--|b|2b|2b|3b-|
- *   |    |    | |  |  |
- *   |    |    | |  |  Key size (n+1)
- *   |    |    | |  |
- *   |    |    | |  Pointer size in bytes (n+1)
- *   |    |    | |
- *   |    |    | Value size (2^n)
- *   |    |    Variable value size flag (not implemented yet)
+ *  |3b-|-5b--|2b|3b-|b|2b|
+ *   |    |    |  |   | |
+ *   |    |    |  |   | | Value size (2^n)
+ *   |    |    |  |   Variable value size flag (not implemented yet)
+ *   |    |    |  |
+ *   |    |    |  Key size (n+1)
+ *   |    |    |
+ *   |    |    Pointer size in bytes (n+1)
  *   |    |
  *   |    Hash table size (2^n);
  *   |    note table size 1 means there is not hash table but only one SortedKeysValues
@@ -48,10 +48,10 @@ import java.util.SortedMap;
  */
 public class ChainHashTable extends HashTable {
     private static final int HEADER_SIZE = 2;
-    private static final int KEY_SIZE_OFFSET = 0;
-    private static final int PTR_SIZE_OFFSET = 3;
-    private static final int VALUE_SIZE_OFFSET = 5;
-    private static final int VARIABLE_VALUE_SIZE_OFFSET = 7;
+    private static final int VALUE_SIZE_OFFSET = 0;
+    private static final int VARIABLE_VALUE_SIZE_OFFSET = 2;
+    private static final int KEY_SIZE_OFFSET = 3;
+    private static final int PTR_SIZE_OFFSET = 6;
     private static final int HASH_TABLE_SIZE_OFFSET = 8;
     private static final int KEY_SIZE_MASK = 0b0000_0111;
     private static final int PTR_SIZE_MASK = 0b0000_0011;

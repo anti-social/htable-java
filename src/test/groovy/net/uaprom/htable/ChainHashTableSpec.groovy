@@ -75,19 +75,19 @@ class HashTableSpec extends BaseSpecification {
         where:
         keys | values || bytes
         [0L] | [13] || [
-            *shortToBytes((short) 0b0_00_00000_0_10_00_000),
+            *shortToBytes((short) 0b0_00_00000_00_000_0_10),
             0, 13, 0, 0, 0
         ]
         [255L] | [13] || [
-            *shortToBytes((short) 0b0_00_00000_0_10_00_000),
+            *shortToBytes((short) 0b0_00_00000_00_000_0_10),
             255, 13, 0, 0, 0
         ]
         [256L] | [13] || [
-            *shortToBytes((short) 0b0_00_00000_0_10_00_001),
+            *shortToBytes((short) 0b0_00_00000_00_001_0_10),
             0, 1, 13, 0, 0, 0
         ]
         [0L, 2L] | [10, 12] || [
-            *shortToBytes((short) 0b0_00_00000_0_10_00_000),
+            *shortToBytes((short) 0b0_00_00000_00_000_0_10),
             0, 10, 0, 0, 0,
             2, 12, 0, 0, 0
         ]
@@ -103,19 +103,19 @@ class HashTableSpec extends BaseSpecification {
         where:
         keys | values || bytes
         [0L, 5L] | [13, 15] || [
-            *shortToBytes((short) 0b0_00_00001_0_10_00_000),
+            *shortToBytes((short) 0b0_00_00001_00_000_0_10),
             4, 9,
             0, 13, 0, 0, 0,
             5, 15, 0, 0, 0
         ]
         [0L, 5L, 8L] | [13, 15, 18] || [
-            *shortToBytes((short) 0b0_00_00001_0_10_00_000),
+            *shortToBytes((short) 0b0_00_00001_00_000_0_10),
             4, 14,
             0, 13, 0, 0, 0, 8, 18, 0, 0, 0,
             5, 15, 0, 0, 0
         ]
         [0L, 5L, 8L, 11L] | [13, 15, 18, 21] || [
-            *shortToBytes((short) 0b0_00_00010_0_10_00_000),
+            *shortToBytes((short) 0b0_00_00010_00_000_0_10),
             6, 16, 0, 21,
             0, 13, 0, 0, 0, 8, 18, 0, 0, 0,
             5, 15, 0, 0, 0,
