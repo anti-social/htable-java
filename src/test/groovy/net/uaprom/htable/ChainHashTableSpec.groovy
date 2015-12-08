@@ -104,19 +104,19 @@ class HashTableSpec extends BaseSpecification {
         keys | values || bytes
         [0L, 5L] | [13, 15] || [
             *shortToBytes((short) 0b0_00_00001_0_10_00_000),
-            2, 7,
+            4, 9,
             0, 13, 0, 0, 0,
             5, 15, 0, 0, 0
         ]
         [0L, 5L, 8L] | [13, 15, 18] || [
             *shortToBytes((short) 0b0_00_00001_0_10_00_000),
-            2, 12,
+            4, 14,
             0, 13, 0, 0, 0, 8, 18, 0, 0, 0,
             5, 15, 0, 0, 0
         ]
         [0L, 5L, 8L, 11L] | [13, 15, 18, 21] || [
             *shortToBytes((short) 0b0_00_00010_0_10_00_000),
-            4, 14, 0, 19,
+            6, 16, 0, 21,
             0, 13, 0, 0, 0, 8, 18, 0, 0, 0,
             5, 15, 0, 0, 0,
             11, 21, 0, 0, 0
@@ -157,7 +157,7 @@ class HashTableSpec extends BaseSpecification {
         1L..1L | 1 | [0xff, 0xff, 0xff, 0xff] as byte[]
         1L..10L | 3 | [0xff, 0xff, 0xff, 0xff] as byte[]
         1L..20L | 1 | [0xff, 0xff, 0xff, 0xff] as byte[]
-        1L..67L | 1 | [0xff, 0xff, 0xff, 0xff] as byte[] // maximum datas for pointer size == 1
+        1L..67L | 1 | [0xff, 0xff, 0xff, 0xff] as byte[] // miminum data for pointer size == 2
         0L..1000L | 3 | [0xff, 0xff, 0xff, 0xff] as byte[]
         0L..100000L | 7 | [0xff, 0xff, 0xff, 0xff] as byte[]
     }

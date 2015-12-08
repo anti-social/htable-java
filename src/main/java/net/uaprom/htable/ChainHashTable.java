@@ -185,7 +185,7 @@ public class ChainHashTable extends HashTable {
                     for (SortedKeysValues kvList : table) {
                         int kvListPtr = 0;
                         if (!kvList.isEmpty()) {
-                            kvListPtr = kvListBuffer.position() + kvListOffset;
+                            kvListPtr = HEADER_SIZE + kvListBuffer.position() + kvListOffset;
                         }
                         tableBuffer.put(ptrCodec.dump(kvListPtr));
                         kvList.dump(kvListBuffer, keyCodec);
@@ -210,7 +210,7 @@ public class ChainHashTable extends HashTable {
                 }
                 for (; ptrSize <= 4; ptrSize++) {
                     int bufferSize = calcBufferSize(ptrSize);
-                    if (HEADER_SIZE + bufferSize - lastKvListSize <= (1 << ptrSize * 8)) {
+                    if (HEADER_SIZE + bufferSize - lastKvListSize < (1 << ptrSize * 8)) {
                         break;
                     }
                 }
@@ -302,8 +302,8 @@ public class ChainHashTable extends HashTable {
                 return binarySearch(HEADER_SIZE, this.length - HEADER_SIZE, key);
             } else {
                 int hashTableIx = (int) (key % hashTableSize);
-                int ptrOffset = this.offset + hashTableIx * this.ptrSize + HEADER_SIZE;
-                int kvListPtr = (int) ptrCodec.load(this.data, ptrOffset) + HEADER_SIZE;
+                int ptrOffset = this.offset + HEADER_SIZE + hashTableIx * this.ptrSize;
+                int kvListPtr = (int) ptrCodec.load(this.data, ptrOffset);
                 if (kvListPtr == 0) {
                     return NOT_FOUND_OFFSET;
                 }
@@ -337,7 +337,7 @@ public class ChainHashTable extends HashTable {
         private int getKvListLength(int hashTableIx, int kvListPtr) {
             for (int i = hashTableIx + 1; i < hashTableSize; i++) {
                 int nextPtrOffset = this.offset + HEADER_SIZE + i * ptrSize;
-                int nextKvListPtr = (int) ptrCodec.load(this.data, nextPtrOffset) + HEADER_SIZE;
+                int nextKvListPtr = (int) ptrCodec.load(this.data, nextPtrOffset);
                 if (nextKvListPtr == 0) {
                     continue;
                 } else {
