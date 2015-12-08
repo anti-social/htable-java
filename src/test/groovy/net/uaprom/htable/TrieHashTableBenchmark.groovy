@@ -7,7 +7,7 @@ import org.junit.Test
 public class TrieHashTableBenchmark extends HashTableBenchmark {
     @Before
     void setUp() {
-        reader = new TrieHashTable.Reader(new TrieHashTable.Writer(2, 4).dump(keys, values))
+        reader = new TrieHashTable.Reader(new TrieHashTable.Writer(HashTable.ValueSize.INT).dump(keys, values))
     }
 
     @Test
