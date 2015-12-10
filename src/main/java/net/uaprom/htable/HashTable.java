@@ -168,7 +168,7 @@ abstract public class HashTable {
 
         public boolean exists(long key) {
             int valueOffset = getValueOffset(key);
-            return valueOffset > 0 ? true : false;
+            return valueOffset != NOT_FOUND_OFFSET;
         }
 
         public byte getByte(long key, byte defaultValue) {
