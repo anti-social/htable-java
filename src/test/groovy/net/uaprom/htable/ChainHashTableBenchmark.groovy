@@ -5,14 +5,17 @@ import org.junit.Test
 
 
 public class ChainHashTableBenchmark extends HashTableBenchmark {
-    @Before
-    void setUp() {
-        reader = new ChainHashTable.Reader(new ChainHashTable.Writer(HashTable.ValueSize.INT).dump(keys, values))
-    }
+    // @Test
+    // public void benchmarkWriter_dump() {
+        
+    // }
 
     @Test
-    public void benchmarkReaderGet() {
-        long milliseconds = benchmark()
+    public void benchmarkReader_get() {
+        HashTable.Reader reader =
+            new ChainHashTable.Reader(new ChainHashTable.Writer(HashTable.ValueSize.INT)
+                                      .dump(keys, values))
+        long milliseconds = benchmarkReader_get(reader)
         println "ChainHashTable.Reader.get benchmark:"
         println "Run ${CYCLES} cycles: ${milliseconds} ms"
         println "${(long) (CYCLES / (milliseconds / 1000))} operations per second"

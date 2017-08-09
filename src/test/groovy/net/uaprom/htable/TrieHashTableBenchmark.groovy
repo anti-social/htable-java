@@ -5,14 +5,12 @@ import org.junit.Test
 
 
 public class TrieHashTableBenchmark extends HashTableBenchmark {
-    @Before
-    void setUp() {
-        reader = new TrieHashTable.Reader(new TrieHashTable.Writer(HashTable.ValueSize.INT).dump(keys, values))
-    }
-
     @Test
-    public void benchmarkReaderGet() {
-        long milliseconds = benchmark()
+    public void benchmarkReader_get() {
+        HashTable.Reader reader =
+            new TrieHashTable.Reader(new TrieHashTable.Writer(HashTable.ValueSize.INT)
+                                     .dump(keys, values))
+        long milliseconds = benchmarkReader_get(reader)
         println "TrieHashTable.Reader.get benchmark:"
         println "Run ${CYCLES} cycles: ${milliseconds} ms"
         println "${(long) (CYCLES / (milliseconds / 1000))} operations per second"
