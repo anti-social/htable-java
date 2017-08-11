@@ -1,15 +1,9 @@
 package net.uaprom.htable;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.SortedMap;
 
 
@@ -18,7 +12,7 @@ import java.util.SortedMap;
  *
  */
 abstract public class HashTable {
-    public static enum ValueSize {
+    public enum ValueSize {
         BYTE(1), SHORT(2), INT(4), LONG(8);//, VAR(-1);
 
         private static final Map<Integer,ValueSize> sizesMap = new HashMap<>();

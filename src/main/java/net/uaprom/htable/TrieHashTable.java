@@ -3,14 +3,9 @@ package net.uaprom.htable;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.SortedMap;
 
 
 /**
@@ -49,7 +44,7 @@ public class TrieHashTable extends HashTable {
     private static final int PTR_SIZE_MASK = 0b0000_0011;
     private static final int VALUE_SIZE_MASK = 0b0000_0011;
 
-    public static enum BitmaskSize {
+    public enum BitmaskSize {
         BYTE(1), SHORT(2), INT(4), LONG(8);
 
         private static final Map<Integer,BitmaskSize> sizesMap = new HashMap<>();
@@ -296,7 +291,6 @@ public class TrieHashTable extends HashTable {
             int layerOffset = HEADER_SIZE;
             int ptrIx = 0;
             byte[] bitmask = new byte[this.bitmaskSize.size];
-            byte[] ptrBytes = new byte[this.ptrSize];
             LongCodec ptrCodec = LONG_CODECS[this.ptrSize - 1];
             for (int level = numLevels - 1; level >= 0; level--) {
                 long k = key >>> (level * this.bitmaskSize.shiftBits) & this.bitmaskSize.shiftMask;
@@ -356,7 +350,7 @@ public class TrieHashTable extends HashTable {
         };
 
         static class BitCounter {
-            protected static byte[] BIT_COUNT_MASKS = new byte[]{
+            static byte[] BIT_COUNT_MASKS = new byte[]{
                 0b0000_0000,
                 0b0000_0001,
                 0b0000_0011,
@@ -366,7 +360,7 @@ public class TrieHashTable extends HashTable {
                 0b0011_1111,
                 0b0111_1111
             };
-            protected static byte[] BIT_COUNTS = new byte[256];
+            static byte[] BIT_COUNTS = new byte[256];
             static {
                 for (int i = 0; i <= 255; i++) {
                     BIT_COUNTS[i] = (byte) Integer.bitCount(i);
@@ -382,6 +376,5 @@ public class TrieHashTable extends HashTable {
                 return count;
             }
         }
-
     }
 }
