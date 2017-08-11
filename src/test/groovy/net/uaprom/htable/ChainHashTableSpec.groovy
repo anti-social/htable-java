@@ -1,7 +1,7 @@
 package net.uaprom.htable
 
 
-class HashTableSpec extends BaseSpecification {
+class ChainHashTableSpec extends BaseSpecification {
     def "test ChainHashTable.Writer.getHashTableSize"() {
         when:
         def htableWriter = new ChainHashTable.Writer(HashTable.ValueSize.INT, fillingRatio, minHashTableSize)

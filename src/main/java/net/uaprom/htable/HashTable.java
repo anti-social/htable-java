@@ -1,5 +1,7 @@
 package net.uaprom.htable;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -144,16 +146,13 @@ abstract public class HashTable {
     }
 
     abstract public static class Reader {
-        protected final byte[] data;
-        protected final int offset;
-        protected final int length;
-        
+        protected final ByteBuffer buffer;
+
         public static final int NOT_FOUND_OFFSET = -1;
 
-        public Reader(byte[] data, int offset, int length) {
-            this.data = data;
-            this.offset = offset;
-            this.length = length;
+        public Reader(ByteBuffer buffer) {
+            this.buffer = buffer;
+            this.buffer.position(0);
         }
 
         abstract public ValueSize valueSize();
@@ -175,7 +174,7 @@ abstract public class HashTable {
 
         public byte getByte(int valueOffset) {
             assert this.valueSize() == ValueSize.BYTE;
-            return this.data[valueOffset];
+            return this.buffer.get(valueOffset);
         }
 
         public short getShort(long key, short defaultValue) {
@@ -244,8 +243,10 @@ abstract public class HashTable {
         }
 
         public byte[] get(int valueOffset) {
-            byte[] value = new byte[this.valueSize().size];
-            System.arraycopy(this.data, valueOffset, value, 0, this.valueSize().size);
+            int valueSize = this.valueSize().size;
+            byte[] value = new byte[valueSize];
+            this.buffer.position(valueOffset);
+            this.buffer.get(value);
             return value;
         }
 

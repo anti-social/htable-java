@@ -9,7 +9,7 @@ import java.util.Map;
 
 
 /**
- *  Hash array mapped trie implementation in Java
+ *  Array mapped trie implementation in Java
  *
  *  <Header><Data>
  *
@@ -254,8 +254,13 @@ public class TrieHashTable extends HashTable {
         }
 
         public Reader(byte[] data, int offset, int length) {
-            super(data, offset, length);
-            short header = ByteUtils.bytesToShort(data, offset);
+            this(ByteBuffer.wrap(data, offset, length).slice());
+        }
+
+        public Reader(ByteBuffer buffer) {
+            super(buffer);
+            this.buffer.order(ByteOrder.LITTLE_ENDIAN);
+            short header = buffer.getShort(0);
             this.numLevels = ((header >>> NUM_LEVELS_OFFSET) & NUM_LEVELS_MASK);
             this.bitmaskSize = BitmaskSize.decode((header >>> BITMASK_SIZE_OFFSET) & BITMASK_SIZE_MASK);
             this.ptrSize = ((header >>> PTR_SIZE_OFFSET) & PTR_SIZE_MASK) + 1;
@@ -282,8 +287,8 @@ public class TrieHashTable extends HashTable {
         @Override
         public final int getValueOffset(long key) {
             if (
-                this.numLevels * this.bitmaskSize.shiftBits < 64
-                && key >>> (this.numLevels * this.bitmaskSize.shiftBits) > 0
+                    this.numLevels * this.bitmaskSize.shiftBits < 64 &&
+                            key >>> (this.numLevels * this.bitmaskSize.shiftBits) > 0
             ) {
                 return NOT_FOUND_OFFSET;
             }
@@ -291,21 +296,25 @@ public class TrieHashTable extends HashTable {
             int layerOffset = HEADER_SIZE;
             int ptrIx = 0;
             byte[] bitmask = new byte[this.bitmaskSize.size];
+            byte[] ptrBuf = new byte[this.ptrSize];
             LongCodec ptrCodec = LONG_CODECS[this.ptrSize - 1];
             for (int level = numLevels - 1; level >= 0; level--) {
+                this.buffer.position(layerOffset);
+                this.buffer.get(bitmask);
                 long k = key >>> (level * this.bitmaskSize.shiftBits) & this.bitmaskSize.shiftMask;
                 int nByte = (int) (k >>> 3);
                 int nBit = (int) (k & 0b0000_0111);
-                if ((this.data[this.offset + layerOffset + nByte] & (1 << nBit)) == 0) {
+                if ((bitmask[nByte] & (1 << nBit)) == 0) {
                     return NOT_FOUND_OFFSET;
                 }
-                ptrIx = BIT_COUNTERS[nByte].count(this.data, this.offset + layerOffset, nByte, nBit);
+                ptrIx = BIT_COUNTERS[nByte].count(bitmask, 0, nByte, nBit);
+                this.buffer.position(layerOffset + bitmask.length + ptrIx * this.ptrSize);
+                this.buffer.get(ptrBuf);
                 if (level != 0) {
-                    int ptrOffset = offset + layerOffset + bitmask.length + ptrIx * this.ptrSize;
-                    layerOffset = (int) ptrCodec.load(this.data, ptrOffset);
+                    layerOffset = (int) ptrCodec.load(ptrBuf, 0);
                 }
             }
-            return offset + layerOffset + bitmask.length + ptrIx * this.valueSize.size;
+            return layerOffset + bitmask.length + ptrIx * this.valueSize.size;
         }
 
         private static final BitCounter DEFAULT_BIT_COUNTER = new BitCounter();

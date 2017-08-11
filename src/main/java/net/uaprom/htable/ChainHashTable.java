@@ -6,7 +6,7 @@ import java.util.ArrayList;
 
 
 /**
- *  Hash array mapped trie implementation in Java
+ *  Chained hash table implementation in Java
  *
  *  <Header><Data>
  *
@@ -272,8 +272,13 @@ public class ChainHashTable extends HashTable {
         }
 
         public Reader(byte[] data, int offset, int length) {
-            super(data, offset, length);
-            short header = ByteUtils.bytesToShort(data, offset);
+            this(ByteBuffer.wrap(data, offset, length).slice());
+        }
+
+        public Reader(ByteBuffer buffer) {
+            super(buffer);
+            this.buffer.order(ByteOrder.LITTLE_ENDIAN);
+            short header = this.buffer.getShort();
             this.keySize = ((header >>> KEY_SIZE_OFFSET) & KEY_SIZE_MASK) + 1;
             this.keyCodec = HashTable.LONG_CODECS[keySize - 1];
             this.ptrSize = ((header >>> PTR_SIZE_OFFSET) & PTR_SIZE_MASK) + 1;
@@ -291,11 +296,14 @@ public class ChainHashTable extends HashTable {
         @Override
         public int getValueOffset(long key) {
             if (hashTableSize == 1) {
-                return binarySearch(HEADER_SIZE, this.length - HEADER_SIZE, key);
+                return binarySearch(HEADER_SIZE, this.buffer.capacity() - HEADER_SIZE, key);
             } else {
                 int hashTableIx = (int) (key % hashTableSize);
-                int ptrOffset = this.offset + HEADER_SIZE + hashTableIx * this.ptrSize;
-                int kvListPtr = (int) ptrCodec.load(this.data, ptrOffset);
+                int ptrOffset = HEADER_SIZE + hashTableIx * this.ptrSize;
+                byte[] ptrBuf = new byte[this.ptrSize];
+                this.buffer.position(ptrOffset);
+                this.buffer.get(ptrBuf);
+                int kvListPtr = (int) ptrCodec.load(ptrBuf, 0);
                 if (kvListPtr == 0) {
                     return NOT_FOUND_OFFSET;
                 }
@@ -305,38 +313,43 @@ public class ChainHashTable extends HashTable {
         }
 
         private long getKey(int offset, int entryIx) {
-            return keyCodec.load(this.data, offset + entryIx * this.entrySize);
+            byte[] keyBuf = new byte[this.keySize];
+            this.buffer.position(offset + entryIx * this.entrySize);
+            this.buffer.get(keyBuf);
+            return keyCodec.load(keyBuf, 0);
         }
 
         private int binarySearch(int kvListOffset, int kvListLength, long key) {
-            int offset = this.offset + kvListOffset;
             int kvListSize = kvListLength / entrySize;
             int minEntryIx = 0, maxEntryIx = kvListSize - 1;
             while (minEntryIx <= maxEntryIx) {
                 int currentEntryIx = (maxEntryIx + minEntryIx) >>> 1;
-                long entryKey = getKey(offset, currentEntryIx);
+                long entryKey = getKey(kvListOffset, currentEntryIx);
                 if (entryKey > key) {
                     maxEntryIx = currentEntryIx - 1;
                 } else if (entryKey < key) {
                     minEntryIx = currentEntryIx + 1;
                 } else {
-                    return offset + currentEntryIx * entrySize + keySize;
+                    return kvListOffset + currentEntryIx * entrySize + keySize;
                 }
             }
             return NOT_FOUND_OFFSET;
         }
 
         private int getKvListLength(int hashTableIx, int kvListPtr) {
-            for (int i = hashTableIx + 1; i < hashTableSize; i++) {
-                int nextPtrOffset = this.offset + HEADER_SIZE + i * ptrSize;
-                int nextKvListPtr = (int) ptrCodec.load(this.data, nextPtrOffset);
+            byte[] ptrBuf = new byte[this.ptrSize];
+            for (int i = hashTableIx + 1; i < this.hashTableSize; i++) {
+                int nextPtrOffset = HEADER_SIZE + i * this.ptrSize;
+                this.buffer.position(nextPtrOffset);
+                this.buffer.get(ptrBuf);
+                int nextKvListPtr = (int) ptrCodec.load(ptrBuf, 0);
                 if (nextKvListPtr == 0) {
                     continue;
                 } else {
                     return nextKvListPtr - kvListPtr;
                 }
             }
-            return this.length - kvListPtr;
+            return this.buffer.capacity() - kvListPtr;
         }
     }
 }

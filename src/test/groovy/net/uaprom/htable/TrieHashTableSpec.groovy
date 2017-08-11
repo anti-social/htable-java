@@ -1,5 +1,7 @@
 package net.uaprom.htable
 
+import java.nio.channels.FileChannel
+
 
 class TrieHashTableSpec extends BaseSpecification {
     def "test TrieHashTable.Writer.getLevels [valueSize: 4, bitmaskSize: 1]"() {
@@ -384,5 +386,27 @@ class TrieHashTableSpec extends BaseSpecification {
         keys | values | defaultValue
         [1L] | [156] | -2
         1L..20L | 1..20 | -2
+    }
+
+    def "test TrieHashTable.Reader with data as MappedByteBuffer"() {
+        setup:
+        def keys = [1L]
+        def values = [100]
+        def writer = new TrieHashTable.Writer(HashTable.ValueSize.INT)
+        def data = writer.dumpInts(keys, values)
+        def tmpFile = File.createTempFile("htable", null)
+        tmpFile.deleteOnExit()
+        def outStream = new FileOutputStream(tmpFile)
+        outStream.write(data)
+
+        when:
+        def inStream = new FileInputStream(tmpFile)
+        def mappedBuffer = inStream.getChannel()
+                .map(FileChannel.MapMode.READ_ONLY, 0, data.length)
+        def reader = new TrieHashTable.Reader(mappedBuffer)
+
+        then:
+        assert reader.getInt(1, -1) == 100
+        assert reader.getInt(2, -1) == -1
     }
 }
